@@ -3,81 +3,24 @@ package main
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
-	//"log"
-	"os"
 )
 
-func main() {
-	app := cli.NewApp()
-	app.Version = "0.1"
-	app.Name = "2ndroute"
-	app.Usage = "create virtual wiring for cloud components"
-	app.Commands = []cli.Command{
-		{
-			Name:  "setup",
-			Usage: "2ndroute bridge [bridge-name]",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "bridge, b",
-					Value: "armada0",
-					Usage: "the bridge name to use",
-				},
-				cli.StringFlag{
-					Name:  "bip",
-					Value: "10.4.0.1/8",
-					Usage: "the cidr to use for the bridge",
-				},
-			},
-			Action: func(c *cli.Context) {
-				name := c.String("bridge")
-				bridgeip := c.String("bip")
-				if err := setup(name, bridgeip); err != nil {
-					fmt.Println(err)
-				}
-			},
-		},
-		{
-			Name:  "create",
-			Usage: "2ndroute create <component-name> <component-ip>",
-			Action: func(c *cli.Context) {
-				if len(c.Args()) != 2 {
-					fmt.Println("invalid args...")
-					return
-				}
+var CreateCommand = cli.Command{
+	Name:  "create",
+	Usage: "2ndroute create <component-name> <component-ip>",
+	Action: func(c *cli.Context) {
+		if len(c.Args()) != 2 {
+			fmt.Println("invalid args...")
+			return
+		}
 
-				comp := c.Args()[0]
-				compip := c.Args()[1]
+		comp := c.Args()[0]
+		compip := c.Args()[1]
 
-				if err := create(comp, compip); err != nil {
-					fmt.Println(err)
-				}
-			},
-		},
-	}
-	app.Run(os.Args)
-}
-
-func setup(name, bridgeip string) error {
-	fmt.Println("# setup bridge")
-	cmd, err := ipLink("add name", name, "type bridge")
-	if err != nil {
-		return err
-	}
-	fmt.Println(cmd)
-
-	cmd, err = ip("addr add", bridgeip, "dev", name)
-	if err != nil {
-		return err
-	}
-	fmt.Println(cmd)
-
-	cmd, err = ipLink("set", name, "up")
-	if err != nil {
-		return err
-	}
-	fmt.Println(cmd)
-
-	return nil
+		if err := create(comp, compip); err != nil {
+			fmt.Println(err)
+		}
+	},
 }
 
 func create(comp, ipaddr string) error {

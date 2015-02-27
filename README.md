@@ -1,25 +1,5 @@
-2ndroute is an ambassador that intelligently directs service calls.  Its primary use is to make connections between components
-in server side applications more dynamic and address the birdnest that often results as applications evolve over time.  This
-helps keep applications portable between environments by always binding to a localhost:port pattern.
+Crate is a libcontainer based container manager.  It is intended to be used in conjunction with an overlay network to make containers from different hosts act as if they are on the same virtual network.  Container IPs are intended to be stable and unique across the network, so containers can be moved around by only adjusting routing entires.
 
-It is a small command line tool that stores routes in consul, and uses iptables to masquerade traffic.
+For more details of the networking see: network.md
 
 ## Usage
-
-    Usage:
-    2ndroute [OPTIONS] <command>
-
-    commands:
-      list - show current routes
-      add  - create new route
-      rm   - remove route
-
-    options
-      -d   run in deamon mode watching for route changes
-
-## Roadmap
-
-### proxy routes
-+ manages a single instance of a HAProxy, updating / restarting when backends change
-+ implement a proxy ourselves replacing HAProxy, which adds hystrix functionality (circuit breaker / bulkhead protections)
-+ statistics

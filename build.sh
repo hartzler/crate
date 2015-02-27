@@ -1,4 +1,4 @@
-NAME=2ndroute
+NAME=crate
 HARDWARE=$(uname -m)
 VERSION=0.0.1
 
