@@ -38,3 +38,22 @@ ip link add app.1.veth0 type veth peer name app.1.veth1
 ip link set app.1.veth1 netns app.1
 
 # route out components
+
+
+
+# setup bridge
+ip link add name armada0 type bridge
+ip addr add 10.4.0.1/8 dev armada0
+ip link set armada0 up
+# create netns
+ip netns add mysql.master
+# create veth pair and attach one to bridge and move other into netns
+ip link add name veth0.mysql.master type veth peer name veth1.mysql.master
+ip link set veth0.mysql.master master armada0
+ip link set veth1.mysql.master netns mysql.master
+# setup container interfaces
+ip netns exec mysql.master ip link set veth1.mysql.master name eth0
+ip netns exec mysql.master ip lo up
+ip netns exec mysql.master ip addr add 10.0.0.1 dev eth0
+ip netns exec mysql.master ip eth0 up
+ip netns exec mysql.master ip route add default via 10.4.0.1
