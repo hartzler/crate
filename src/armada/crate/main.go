@@ -14,13 +14,18 @@ func main() {
 	app.Name = "crate"
 	app.Usage = "manage containers and connections"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{Name: "root", Value: ".", Usage: "root directory for containers"},
+		cli.StringFlag{Name: "root", Value: "/var/lib/crate/containers", Usage: "root directory for containers"},
 		cli.StringFlag{Name: "log-file", Value: "crate.log", Usage: "set the log file to output logs to"},
 		cli.BoolFlag{Name: "debug", Usage: "enable debug output in the logs"},
 	}
 	app.Commands = []cli.Command{
 		SetupCommand,
 		CreateCommand,
+		runCommand,
+		destroyCommand,
+		pauseCommand,
+		unpauseCommand,
+		pidsCommand,
 		InitCommand,
 	}
 	app.Before = func(context *cli.Context) error {
@@ -34,6 +39,12 @@ func main() {
 			}
 			log.SetOutput(f)
 		}
+		// todo move into Crate type
+		if _, err := os.Stat(context.GlobalString("root")); os.IsNotExist(err) {
+			if err = os.MkdirAll(context.GlobalString("root"), 0700); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	if err := app.Run(os.Args); err != nil {
@@ -41,20 +52,12 @@ func main() {
 	}
 }
 
-func loadFactory(context *cli.Context) (libcontainer.Factory, error) {
-	return libcontainer.New(context.GlobalString("root"), libcontainer.Cgroupfs)
+func fromContext(context *cli.Context) *Crate {
+	return New(context.GlobalString("root"))
 }
 
 func getContainer(context *cli.Context) (libcontainer.Container, error) {
-	factory, err := loadFactory(context)
-	if err != nil {
-		return nil, err
-	}
-	container, err := factory.Load(context.String("id"))
-	if err != nil {
-		return nil, err
-	}
-	return container, nil
+	return fromContext(context).Load(context.String("id"))
 }
 
 func fatal(err error) {

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
+	//"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -19,6 +17,7 @@ import (
 const defaultMountFlags = syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 
 var createFlags = []cli.Flag{
+	cli.StringFlag{Name: "id", Usage: "specify the ID for a container"},
 	cli.IntFlag{Name: "parent-death-signal", Usage: "set the signal that will be delivered to the process in case the parent dies"},
 	cli.BoolFlag{Name: "read-only", Usage: "set the container's rootfs as read-only"},
 	cli.StringSliceFlag{Name: "bind", Value: &cli.StringSlice{}, Usage: "add bind mounts to the container"},
@@ -33,7 +32,7 @@ var createFlags = []cli.Flag{
 	cli.StringFlag{Name: "mount-label", Usage: "set the mount label"},
 	cli.StringFlag{Name: "rootfs", Usage: "set the rootfs"},
 	cli.IntFlag{Name: "userns-root-uid", Usage: "set the user namespace root uid"},
-	cli.StringFlag{Name: "hostname", Value: "nsinit", Usage: "hostname value for the container"},
+	cli.StringFlag{Name: "hostname", Value: "crate", Usage: "hostname value for the container"},
 	cli.StringFlag{Name: "net", Value: "", Usage: "network namespace"},
 	cli.StringFlag{Name: "ipc", Value: "", Usage: "ipc namespace"},
 	cli.StringFlag{Name: "pid", Value: "", Usage: "pid namespace"},
@@ -45,37 +44,8 @@ var createFlags = []cli.Flag{
 	cli.IntFlag{Name: "veth-mtu", Usage: "veth mtu"},
 }
 
-var configCommand = cli.Command{
-	Name:  "config",
-	Usage: "generate a standard configuration file for a container",
-	Flags: append([]cli.Flag{
-		cli.StringFlag{Name: "file,f", Value: "stdout", Usage: "write the configuration to the specified file"},
-	}, createFlags...),
-	Action: func(context *cli.Context) {
-		template := getTemplate()
-		modify(template, context)
-		data, err := json.MarshalIndent(template, "", "\t")
-		if err != nil {
-			fatal(err)
-		}
-		var f *os.File
-		filePath := context.String("file")
-		switch filePath {
-		case "stdout", "":
-			f = os.Stdout
-		default:
-			if f, err = os.Create(filePath); err != nil {
-				fatal(err)
-			}
-			defer f.Close()
-		}
-		if _, err := io.Copy(f, bytes.NewBuffer(data)); err != nil {
-			fatal(err)
-		}
-	},
-}
-
 func modify(config *configs.Config, context *cli.Context) {
+	//id := context.String("id")
 	config.ParentDeathSignal = context.Int("parent-death-signal")
 	config.Readonlyfs = context.Bool("read-only")
 	config.Cgroups.CpusetCpus = context.String("cpuset-cpus")
@@ -94,6 +64,7 @@ func modify(config *configs.Config, context *cli.Context) {
 
 	userns_uid := context.Int("userns-root-uid")
 	if userns_uid != 0 {
+		//config.Namespaces.Add(configs.NEWUSER, fmt.Sprintf("/crate/%s/user", id))
 		config.Namespaces.Add(configs.NEWUSER, "")
 		config.UidMappings = []configs.IDMap{
 			{ContainerID: 0, HostID: userns_uid, Size: 1},
@@ -189,7 +160,7 @@ func modify(config *configs.Config, context *cli.Context) {
 	}
 }
 
-func getTemplate() *configs.Config {
+func getTemplate(id string) *configs.Config {
 	cwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -214,6 +185,13 @@ func getTemplate() *configs.Config {
 			"AUDIT_WRITE",
 		},
 		Namespaces: configs.Namespaces([]configs.Namespace{
+			/*
+				{Type: configs.NEWNS, Path: fmt.Sprintf("/crate/%s/mnt", id)},
+				{Type: configs.NEWUTS, Path: fmt.Sprintf("/crate/%s/uts", id)},
+				{Type: configs.NEWIPC, Path: fmt.Sprintf("/crate/%s/pic", id)},
+				{Type: configs.NEWPID, Path: fmt.Sprintf("/crate/%s/pid", id)},
+				{Type: configs.NEWNET, Path: fmt.Sprintf("/crate/%s/mnt", id)},
+			*/
 			{Type: configs.NEWNS},
 			{Type: configs.NEWUTS},
 			{Type: configs.NEWIPC},
@@ -222,7 +200,7 @@ func getTemplate() *configs.Config {
 		}),
 		Cgroups: &configs.Cgroup{
 			Name:            filepath.Base(cwd),
-			Parent:          "nsinit",
+			Parent:          "crate",
 			AllowAllDevices: false,
 			AllowedDevices:  configs.DefaultAllowedDevices,
 		},

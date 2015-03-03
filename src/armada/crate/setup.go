@@ -10,7 +10,7 @@ import (
 
 var SetupCommand = cli.Command{
 	Name:  "setup",
-	Usage: "2ndroute bridge [bridge-name]",
+	Usage: "create the network bridge [bridge-name]",
 	Flags: createFlags,
 	Action: func(c *cli.Context) {
 		name := c.String("bridge")
