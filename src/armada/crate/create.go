@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/codegangsta/cli"
 )
 
@@ -15,6 +16,8 @@ var CreateCommand = cli.Command{
 		id := context.String("id")
 		config := getTemplate(id)
 		modify(config, context)
+
+		fmt.Println(config)
 
 		crate := fromContext(context)
 		if _, err := crate.Create(id, config); err != nil {

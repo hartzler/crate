@@ -1,7 +1,7 @@
 package main
 
 import (
-	//"fmt"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -38,10 +38,11 @@ var createFlags = []cli.Flag{
 	cli.StringFlag{Name: "pid", Value: "", Usage: "pid namespace"},
 	cli.StringFlag{Name: "uts", Value: "", Usage: "uts namespace"},
 	cli.StringFlag{Name: "mnt", Value: "", Usage: "mount namespace"},
-	cli.StringFlag{Name: "veth-bridge", Usage: "veth bridge"},
-	cli.StringFlag{Name: "veth-address", Usage: "veth ip address"},
-	cli.StringFlag{Name: "veth-gateway", Usage: "veth gateway address"},
-	cli.IntFlag{Name: "veth-mtu", Usage: "veth mtu"},
+	cli.StringFlag{Name: "veth-bridge", Value: "", Usage: "veth bridge"},
+	cli.StringFlag{Name: "veth-address", Value: "", Usage: "veth ip address"},
+	cli.StringFlag{Name: "veth-gateway", Value: "", Usage: "veth gateway address"},
+	cli.IntFlag{Name: "veth-mtu", Value: 1500, Usage: "veth mtu"},
+	cli.IntFlag{Name: "veth-txq", Value: 16, Usage: "veth tx queue length"},
 }
 
 func modify(config *configs.Config, context *cli.Context) {
@@ -143,7 +144,7 @@ func modify(config *configs.Config, context *cli.Context) {
 		}
 	}
 	if bridge := context.String("veth-bridge"); bridge != "" {
-		hostName, err := utils.GenerateRandomName("veth", 7)
+		hostName, err := utils.GenerateRandomName("armada", 7)
 		if err != nil {
 			logrus.Fatal(err)
 		}
@@ -154,9 +155,11 @@ func modify(config *configs.Config, context *cli.Context) {
 			Address:           context.String("veth-address"),
 			Gateway:           context.String("veth-gateway"),
 			Mtu:               context.Int("veth-mtu"),
+			TxQueueLen:        context.Int("veth-txq"),
 			HostInterfaceName: hostName,
 		}
 		config.Networks = append(config.Networks, network)
+		fmt.Println(config.Networks[0])
 	}
 }
 

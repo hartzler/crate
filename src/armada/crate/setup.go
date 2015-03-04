@@ -11,7 +11,10 @@ import (
 var SetupCommand = cli.Command{
 	Name:  "setup",
 	Usage: "create the network bridge [bridge-name]",
-	Flags: createFlags,
+	Flags: []cli.Flag{
+		cli.StringFlag{Name: "bip", Value: "10.4.0.255/16", Usage: "ID for the container"},
+		cli.StringFlag{Name: "bridge", Value: "armada0", Usage: "name for the armada bridge"},
+	},
 	Action: func(c *cli.Context) {
 		name := c.String("bridge")
 		bridgeip := c.String("bip")
