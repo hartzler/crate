@@ -16,38 +16,9 @@ import (
 
 const defaultMountFlags = syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 
-var createFlags = []cli.Flag{
-	cli.StringFlag{Name: "id", Usage: "specify the ID for a container"},
-	cli.IntFlag{Name: "parent-death-signal", Usage: "set the signal that will be delivered to the process in case the parent dies"},
-	cli.BoolFlag{Name: "read-only", Usage: "set the container's rootfs as read-only"},
-	cli.StringSliceFlag{Name: "bind", Value: &cli.StringSlice{}, Usage: "add bind mounts to the container"},
-	cli.StringSliceFlag{Name: "tmpfs", Value: &cli.StringSlice{}, Usage: "add tmpfs mounts to the container"},
-	cli.IntFlag{Name: "cpushares", Usage: "set the cpushares for the container"},
-	cli.IntFlag{Name: "memory-limit", Usage: "set the memory limit for the container"},
-	cli.IntFlag{Name: "memory-swap", Usage: "set the memory swap limit for the container"},
-	cli.StringFlag{Name: "cpuset-cpus", Usage: "set the cpuset cpus"},
-	cli.StringFlag{Name: "cpuset-mems", Usage: "set the cpuset mems"},
-	cli.StringFlag{Name: "apparmor-profile", Usage: "set the apparmor profile"},
-	cli.StringFlag{Name: "process-label", Usage: "set the process label"},
-	cli.StringFlag{Name: "mount-label", Usage: "set the mount label"},
-	cli.StringFlag{Name: "rootfs", Usage: "set the rootfs"},
-	cli.IntFlag{Name: "userns-root-uid", Usage: "set the user namespace root uid"},
-	cli.StringFlag{Name: "hostname", Value: "crate", Usage: "hostname value for the container"},
-	cli.StringFlag{Name: "net", Value: "", Usage: "network namespace"},
-	cli.StringFlag{Name: "ipc", Value: "", Usage: "ipc namespace"},
-	cli.StringFlag{Name: "pid", Value: "", Usage: "pid namespace"},
-	cli.StringFlag{Name: "uts", Value: "", Usage: "uts namespace"},
-	cli.StringFlag{Name: "mnt", Value: "", Usage: "mount namespace"},
-	cli.StringFlag{Name: "veth-bridge", Value: "", Usage: "veth bridge"},
-	cli.StringFlag{Name: "veth-address", Value: "", Usage: "veth ip address"},
-	cli.StringFlag{Name: "veth-gateway", Value: "", Usage: "veth gateway address"},
-	cli.IntFlag{Name: "veth-mtu", Value: 1500, Usage: "veth mtu"},
-	cli.IntFlag{Name: "veth-txq", Value: 16, Usage: "veth tx queue length"},
-}
-
 func modify(config *configs.Config, context *cli.Context) {
-	//id := context.String("id")
-	config.ParentDeathSignal = context.Int("parent-death-signal")
+	id := context.String("id")
+	//config.ParentDeathSignal = context.Int("parent-death-signal")
 	config.Readonlyfs = context.Bool("read-only")
 	config.Cgroups.CpusetCpus = context.String("cpuset-cpus")
 	config.Cgroups.CpusetMems = context.String("cpuset-mems")
@@ -112,38 +83,14 @@ func modify(config *configs.Config, context *cli.Context) {
 			Flags:       syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV,
 		})
 	}
-	for flag, value := range map[string]configs.NamespaceType{
-		"net": configs.NEWNET,
-		"mnt": configs.NEWNS,
-		"pid": configs.NEWPID,
-		"ipc": configs.NEWIPC,
-		"uts": configs.NEWUTS,
-	} {
-		switch v := context.String(flag); v {
-		case "host":
-			config.Namespaces.Remove(value)
-		case "", "private":
-			if !config.Namespaces.Contains(value) {
-				config.Namespaces.Add(value, "")
-			}
-			if flag == "net" {
-				config.Networks = []*configs.Network{
-					{
-						Type:    "loopback",
-						Address: "127.0.0.1/0",
-						Gateway: "localhost",
-					},
-				}
-			}
-			if flag == "uts" {
-				config.Hostname = context.String("hostname")
-			}
-		default:
-			config.Namespaces.Remove(value)
-			config.Namespaces.Add(value, v)
-		}
-	}
-	if bridge := context.String("veth-bridge"); bridge != "" {
+	config.Namespaces = configs.Namespaces([]configs.Namespace{
+		{Type: configs.NEWNS},
+		{Type: configs.NEWUTS},
+		{Type: configs.NEWIPC},
+		{Type: configs.NEWPID},
+		{Type: configs.NEWNET, Path: fmt.Sprintf("/var/run/netns/%s", id)},
+	})
+	if bridge := context.String("bridge"); bridge != "" {
 		hostName, err := utils.GenerateRandomName("armada", 7)
 		if err != nil {
 			logrus.Fatal(err)
@@ -152,10 +99,10 @@ func modify(config *configs.Config, context *cli.Context) {
 			Type:              "veth",
 			Name:              "eth0",
 			Bridge:            bridge,
-			Address:           context.String("veth-address"),
-			Gateway:           context.String("veth-gateway"),
-			Mtu:               context.Int("veth-mtu"),
-			TxQueueLen:        context.Int("veth-txq"),
+			Address:           context.String("address"),
+			Gateway:           context.String("gateway"),
+			Mtu:               context.Int("mtu"),
+			TxQueueLen:        context.Int("txq"),
 			HostInterfaceName: hostName,
 		}
 		config.Networks = append(config.Networks, network)
@@ -187,20 +134,6 @@ func getTemplate(id string) *configs.Config {
 			"KILL",
 			"AUDIT_WRITE",
 		},
-		Namespaces: configs.Namespaces([]configs.Namespace{
-			/*
-				{Type: configs.NEWNS, Path: fmt.Sprintf("/crate/%s/mnt", id)},
-				{Type: configs.NEWUTS, Path: fmt.Sprintf("/crate/%s/uts", id)},
-				{Type: configs.NEWIPC, Path: fmt.Sprintf("/crate/%s/pic", id)},
-				{Type: configs.NEWPID, Path: fmt.Sprintf("/crate/%s/pid", id)},
-				{Type: configs.NEWNET, Path: fmt.Sprintf("/crate/%s/mnt", id)},
-			*/
-			{Type: configs.NEWNS},
-			{Type: configs.NEWUTS},
-			{Type: configs.NEWIPC},
-			{Type: configs.NEWPID},
-			{Type: configs.NEWNET},
-		}),
 		Cgroups: &configs.Cgroup{
 			Name:            filepath.Base(cwd),
 			Parent:          "crate",

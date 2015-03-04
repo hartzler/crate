@@ -22,8 +22,8 @@ var pauseCommand = cli.Command{
 }
 
 var unpauseCommand = cli.Command{
-	Name:  "unpause",
-	Usage: "unpause the container's processes",
+	Name:  "resume",
+	Usage: "resume the container's processes",
 	Flags: []cli.Flag{
 		cli.StringFlag{Name: "id", Value: "nsinit", Usage: "specify the ID for a container"},
 	},

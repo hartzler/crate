@@ -1,100 +1,22 @@
-package main
+package crate
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/docker/libcontainer/netlink"
-	"github.com/docker/libcontainer/utils"
-	"net"
 	"os/exec"
 	"strings"
 	"text/template"
 )
 
 type Network struct {
+	Name              string
+	AddressCidr       string
 	Bridge            string
-	Address           string
-	NamespaceFd       uintptr
+	BridgeIp          string
 	TxQueueLen        int
 	Mtu               int
 	HostInterfaceName string
 	TempVethPeerName  string
-}
-
-func (self *Network) netlinkCreate() (err error) {
-	if self.HostInterfaceName == "" {
-		tmpName, err := self.generateTempPeerName()
-		if err != nil {
-			return err
-		}
-		self.HostInterfaceName = tmpName
-	}
-	tmpName, err := self.generateTempPeerName()
-	if err != nil {
-		return err
-	}
-	self.TempVethPeerName = tmpName
-	defer func() {
-		if err != nil {
-			netlink.NetworkLinkDel(self.HostInterfaceName)
-			netlink.NetworkLinkDel(self.TempVethPeerName)
-		}
-	}()
-
-	fmt.Println("MY NETWORK: settings: ", self)
-
-	if self.Bridge == "" {
-		return fmt.Errorf("bridge is not specified")
-	}
-	fmt.Println("MY NETWORK: start")
-	bridge, err := net.InterfaceByName(self.Bridge)
-	if err != nil {
-		return err
-	}
-	fmt.Println("MY NETWORK: got bridge")
-	if err := netlink.NetworkCreateVethPair(self.HostInterfaceName, self.TempVethPeerName, self.TxQueueLen); err != nil {
-		return err
-	}
-	fmt.Println("MY NETWORK: created veth pair")
-	host, err := net.InterfaceByName(self.HostInterfaceName)
-	if err != nil {
-		return err
-	}
-	fmt.Println("MY NETWORK: got host veth")
-	if err := netlink.AddToBridge(host, bridge); err != nil {
-		return err
-	}
-	fmt.Println("MY NETWORK: added host veth to bridge")
-	if err := netlink.NetworkSetMTU(host, self.Mtu); err != nil {
-		return err
-	}
-	fmt.Println("MY NETWORK: set MTU")
-	if err := netlink.NetworkLinkUp(host); err != nil {
-		return err
-	}
-	fmt.Println("MY NETWORK: up'd host veth")
-	child, err := net.InterfaceByName(self.TempVethPeerName)
-	if err != nil {
-		return err
-	}
-	fmt.Println("MY NETWORK: got temp veth")
-	err = netlink.NetworkSetNsFd(child, int(self.NamespaceFd))
-	if err != nil {
-		return err
-	}
-	fmt.Println("MY NETWORK: moved temp veth to namespace fd: ", self.NamespaceFd)
-	return nil
-}
-
-func (self *Network) generateTempPeerName() (string, error) {
-	return utils.GenerateRandomName("armada", 7)
-}
-
-type ipContext struct {
-	Name        string
-	AddressCidr string
-	Bridge      string
-	BridgeIp    string
 }
 
 var ipCommands = []string{
@@ -113,7 +35,8 @@ var ipCommands = []string{
 	"ip netns exec {{.Name}} ip route add default via {{.BridgeIp}} dev eth0",
 }
 
-func (self *Network) ipCreate(context ipContext) error {
+// TODO: handle error and clean up after ourselves
+func (self *Network) create() error {
 	fmt.Println("IPCREATE: START")
 	for _, cmd := range ipCommands {
 		// template it
@@ -122,7 +45,7 @@ func (self *Network) ipCreate(context ipContext) error {
 		if err != nil {
 			return err
 		}
-		err = tmpl.Execute(&buf, context)
+		err = tmpl.Execute(&buf, self)
 		if err != nil {
 			return err
 		}

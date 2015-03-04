@@ -1,9 +1,7 @@
-package main
+package crate
 
 import (
 	"encoding/json"
-	"fmt"
-	//log "github.com/Sirupsen/logrus"
 	"github.com/docker/libcontainer"
 	"github.com/docker/libcontainer/configs"
 	"io/ioutil"
@@ -11,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-var standardEnvironment = []string{
+var StandardEnvironment = []string{
 	"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 	"HOSTNAME=nsinit",
 	"TERM=xterm",
@@ -25,7 +23,18 @@ func New(root string) *Crate {
 	return &Crate{root}
 }
 
-func (self *Crate) Create(id string, config *configs.Config) (libcontainer.Container, error) {
+func (self *Crate) SetupRoot() error {
+	if _, err := os.Stat(self.Root); os.IsNotExist(err) {
+		return os.MkdirAll(self.Root, 0700)
+	}
+	return nil
+}
+
+func (self *Crate) Factory() (libcontainer.Factory, error) {
+	return libcontainer.New(self.Root, libcontainer.Cgroupfs)
+}
+
+func (self *Crate) Create(id string, config *configs.Config) (*Container, error) {
 
 	// create
 	factory, err := self.Factory()
@@ -38,47 +47,26 @@ func (self *Crate) Create(id string, config *configs.Config) (libcontainer.Conta
 		return nil, err
 	}
 
-	/*
-		// lookup network namespace fd
-		fd, err := self.LookupNetworkNsFd(&config.Namespaces)
-		if err != nil {
-			return nil, err
-		}
-
-		// setup network
-		nc := config.Networks[0]
-		network := &Network{
-			NamespaceFd:       fd,
-			Address:           nc.Address,
-			Bridge:            nc.Bridge,
-			Mtu:               nc.Mtu,
-			TxQueueLen:        nc.TxQueueLen,
-			HostInterfaceName: nc.HostInterfaceName,
-		}
-		err = network.netlinkCreate()
-		if err != nil {
-			return nil, err
-		}
-	*/
-
+	// setup our network namespace, links, and routes
 	nc := config.Networks[0]
-	network := &Network{}
-	err = network.ipCreate(ipContext{
+	network := &Network{
 		Name:        id,
 		Bridge:      nc.Bridge,
-		BridgeIp:    "10.4.0.255",
+		BridgeIp:    nc.Gateway,
 		AddressCidr: nc.Address,
-	})
-	if err != nil {
+	}
+	if err = network.create(); err != nil {
 		return nil, err
 	}
 
+	// clear config so libcontainer doesnt blow it
 	config.Networks = nil
 
+	// TODO: handle uncreated libcontainer
 	// start a dummy process to force libcontainer to actually create shit
 	process := &libcontainer.Process{
 		Args:   []string{"/sbin/ip", "link"},
-		Env:    standardEnvironment,
+		Env:    StandardEnvironment,
 		User:   "",
 		Cwd:    "",
 		Stdin:  os.Stdin,
@@ -88,7 +76,7 @@ func (self *Crate) Create(id string, config *configs.Config) (libcontainer.Conta
 
 	err = container.Start(process)
 	if err != nil {
-		return container, err
+		return nil, err
 	}
 
 	// write out config data
@@ -98,31 +86,26 @@ func (self *Crate) Create(id string, config *configs.Config) (libcontainer.Conta
 	}
 
 	err = ioutil.WriteFile(filepath.Join(self.Root, id, "container.json"), data, 0655)
-	return container, err
+	return &Container{
+		id:        id,
+		crate:     self,
+		container: container,
+	}, err
 }
 
-func (self *Crate) Load(id string) (libcontainer.Container, error) {
+func (self *Crate) Load(id string) (*Container, error) {
 	factory, err := self.Factory()
 	if err != nil {
 		return nil, err
 	}
-
-	return factory.Load(id)
-}
-
-func (self *Crate) Factory() (libcontainer.Factory, error) {
-	return libcontainer.New(self.Root, libcontainer.Cgroupfs)
-}
-
-func (self *Crate) LookupNetworkNsFd(n *configs.Namespaces) (uintptr, error) {
-	for _, ns := range *n {
-		if ns.Type == configs.NEWNET {
-			file, err := os.Open(ns.GetPath(0))
-			if err != nil {
-				return 0, err
-			}
-			return file.Fd(), nil
-		}
+	container, err := factory.Load(id)
+	if err != nil {
+		return nil, err
 	}
-	return 0, fmt.Errorf("Network namespace not found")
+
+	return &Container{
+		id:        id,
+		crate:     self,
+		container: container,
+	}, nil
 }

@@ -12,7 +12,7 @@ var pidsCommand = cli.Command{
 		cli.StringFlag{Name: "id", Usage: "ID for the container"},
 	},
 	Action: func(context *cli.Context) {
-		container, err := fromContext(context).Load(context.String("id"))
+		container, err := getContainer(context)
 		if err != nil {
 			fatal(err)
 		}

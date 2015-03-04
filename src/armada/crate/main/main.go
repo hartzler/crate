@@ -1,6 +1,7 @@
 package main
 
 import (
+	"armada/crate"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -39,24 +40,19 @@ func main() {
 			}
 			log.SetOutput(f)
 		}
-		// todo move into Crate type
-		if _, err := os.Stat(context.GlobalString("root")); os.IsNotExist(err) {
-			if err = os.MkdirAll(context.GlobalString("root"), 0700); err != nil {
-				return err
-			}
-		}
-		return nil
+		// make sure we have our root setup
+		return fromContext(context).SetupRoot()
 	}
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func fromContext(context *cli.Context) *Crate {
-	return New(context.GlobalString("root"))
+func fromContext(context *cli.Context) *crate.Crate {
+	return crate.New(context.GlobalString("root"))
 }
 
-func getContainer(context *cli.Context) (libcontainer.Container, error) {
+func getContainer(context *cli.Context) (*crate.Container, error) {
 	return fromContext(context).Load(context.String("id"))
 }
 
