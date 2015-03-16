@@ -30,8 +30,8 @@ var ipCommands = []string{
 	// setup container interfaces
 	"ip netns exec {{.Name}} ip link set lo up",
 	"ip netns exec {{.Name}} ip link set veth.{{.Name}} name eth0",
-	"ip netns exec {{.Name}} ip link set eth0 up",
 	"ip netns exec {{.Name}} ip addr add {{.AddressCidr}} dev eth0",
+	"ip netns exec {{.Name}} ip link set eth0 up",
 	"ip netns exec {{.Name}} ip route add default via {{.BridgeIp}} dev eth0",
 }
 

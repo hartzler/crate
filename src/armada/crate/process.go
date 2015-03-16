@@ -1,8 +1,8 @@
 package crate
 
 import (
-	"github.com/docker/libcontainer"
-	"os"
+	"fmt"
+	"net"
 )
 
 type RunArgs struct {
@@ -15,19 +15,30 @@ type RunArgs struct {
 
 func (self *Crate) Run(args RunArgs) error {
 	// lookup container
-	container, err := self.Load(args.Id)
+	/*
+		container, err := self.Load(args.Id)
+		if err != nil {
+			return err
+		}
+	*/
+
+	fmt.Println("OUTSIDE: Dialing...")
+	conn, err := net.Dial("unix", "/home/vagrant/busybox/crate.socket")
 	if err != nil {
 		return err
 	}
 
-	// start process
-	return container.Start(&libcontainer.Process{
-		Args:   args.Args,
-		Env:    args.Env,
-		User:   args.User,
-		Cwd:    args.Cwd,
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-	})
+	fmt.Println("OUTSIDE: Writing...")
+	if _, err := conn.Write([]byte("hello initer!\n")); err != nil {
+		return err
+	}
+
+	fmt.Println("OUTSIDE: Hanging up...")
+	if err = conn.Close(); err != nil {
+		return err
+	}
+
+	fmt.Println("OUTSIDE: Finished.")
+	return nil
+
 }

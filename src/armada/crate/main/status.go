@@ -6,23 +6,23 @@ import (
 	"github.com/codegangsta/cli"
 )
 
-var pidsCommand = cli.Command{
-	Name:  "pids",
-	Usage: "list the pids of a container",
+var statusCommand = cli.Command{
+	Name:  "status",
+	Usage: "show the status of a container",
 	Flags: []cli.Flag{
-		cli.StringFlag{Name: "id", Usage: "ID for the container"},
+		cli.StringFlag{Name: "id", Usage: "ID of the container"},
 	},
 	Action: func(context *cli.Context) {
 		container, err := getContainer(context)
 		if err != nil {
 			fatal(err)
 		}
-		pids, err := container.Processes()
+		status, err := container.Status()
 		if err != nil {
 			fatal(err)
 		}
 
-		if err = json.NewEncoder(log.StandardLogger().Out).Encode(&pids); err != nil {
+		if err = json.NewEncoder(log.StandardLogger().Out).Encode(&status); err != nil {
 			fatal(err)
 		}
 	},

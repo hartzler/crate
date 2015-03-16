@@ -33,3 +33,12 @@ For more details of the networking see: network.md
         --debug				enable debug output in the logs
         --help, -h				show help
         --version, -v			print the version
+
+
+## Crate Image
+
+Applications are packaged into a "crate" file.
+
+## Crate Container (Runtime Environment)
+
+The environment that the crate processes run in, or the "container".

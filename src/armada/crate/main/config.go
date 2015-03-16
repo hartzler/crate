@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -18,21 +16,28 @@ const defaultMountFlags = syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NOD
 
 func modify(config *configs.Config, context *cli.Context) {
 	id := context.String("id")
+	rootfs := context.String("rootfs")
+
 	//config.ParentDeathSignal = context.Int("parent-death-signal")
 	config.Readonlyfs = context.Bool("read-only")
-	config.Cgroups.CpusetCpus = context.String("cpuset-cpus")
-	config.Cgroups.CpusetMems = context.String("cpuset-mems")
-	config.Cgroups.CpuShares = int64(context.Int("cpushares"))
-	config.Cgroups.Memory = int64(context.Int("memory-limit"))
-	config.Cgroups.MemorySwap = int64(context.Int("memory-swap"))
+
+	config.Cgroups = &configs.Cgroup{
+		Name:            id,
+		Parent:          "crate",
+		AllowAllDevices: false,
+		AllowedDevices:  configs.DefaultAllowedDevices,
+		CpusetCpus:      context.String("cpuset-cpus"),
+		CpusetMems:      context.String("cpuset-mems"),
+		CpuShares:       int64(context.Int("cpushares")),
+		Memory:          int64(context.Int("memory-limit")),
+		MemorySwap:      int64(context.Int("memory-swap")),
+	}
+
 	config.AppArmorProfile = context.String("apparmor-profile")
 	config.ProcessLabel = context.String("process-label")
 	config.MountLabel = context.String("mount-label")
 
-	rootfs := context.String("rootfs")
-	if rootfs != "" {
-		config.Rootfs = rootfs
-	}
+	config.Rootfs = rootfs
 
 	userns_uid := context.Int("userns-root-uid")
 	if userns_uid != 0 {
@@ -83,6 +88,7 @@ func modify(config *configs.Config, context *cli.Context) {
 			Flags:       syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV,
 		})
 	}
+	// todo: bind mount other namespaces into container dir
 	config.Namespaces = configs.Namespaces([]configs.Namespace{
 		{Type: configs.NEWNS},
 		{Type: configs.NEWUTS},
@@ -111,12 +117,7 @@ func modify(config *configs.Config, context *cli.Context) {
 }
 
 func getTemplate(id string) *configs.Config {
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
 	return &configs.Config{
-		Rootfs:            cwd,
 		ParentDeathSignal: int(syscall.SIGKILL),
 		Capabilities: []string{
 			"CHOWN",
@@ -133,12 +134,6 @@ func getTemplate(id string) *configs.Config {
 			"SYS_CHROOT",
 			"KILL",
 			"AUDIT_WRITE",
-		},
-		Cgroups: &configs.Cgroup{
-			Name:            filepath.Base(cwd),
-			Parent:          "crate",
-			AllowAllDevices: false,
-			AllowedDevices:  configs.DefaultAllowedDevices,
 		},
 		Devices: configs.DefaultAutoCreatedDevices,
 		MaskPaths: []string{
