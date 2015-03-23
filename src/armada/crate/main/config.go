@@ -94,7 +94,8 @@ func modify(config *configs.Config, context *cli.Context) {
 		{Type: configs.NEWUTS},
 		{Type: configs.NEWIPC},
 		{Type: configs.NEWPID},
-		{Type: configs.NEWNET, Path: fmt.Sprintf("/var/run/netns/%s", id)},
+		{Type: configs.NEWNET},
+		//{Type: configs.NEWNET, Path: fmt.Sprintf("/var/run/netns/%s", id)},
 	})
 	if bridge := context.String("bridge"); bridge != "" {
 		hostName, err := utils.GenerateRandomName("armada", 7)

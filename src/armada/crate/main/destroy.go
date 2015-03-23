@@ -11,11 +11,7 @@ var destroyCommand = cli.Command{
 		cli.StringFlag{Name: "id", Usage: "ID of the container"},
 	},
 	Action: func(context *cli.Context) {
-		container, err := getContainer(context)
-		if err != nil {
-			fatal(err)
-		}
-		if err = container.Destroy(); err != nil {
+		if err := fromContext(context).Destroy(context.String("id")); err != nil {
 			fatal(err)
 		}
 	},

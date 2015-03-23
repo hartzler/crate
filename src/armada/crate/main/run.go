@@ -21,8 +21,7 @@ var runCommand = cli.Command{
 }
 
 func runAction(context *cli.Context) {
-	err := fromContext(context).Run(crate.RunArgs{
-		Id:   context.String("id"),
+	err := fromContext(context).Run(context.String("id"), crate.RunArgs{
 		Args: context.Args(),
 		Env:  context.StringSlice("env"),
 		User: context.String("user"),

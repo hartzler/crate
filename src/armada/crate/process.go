@@ -1,27 +1,19 @@
 package crate
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 )
 
 type RunArgs struct {
-	Id   string
 	Args []string
 	Env  []string
 	User string
 	Cwd  string
 }
 
-func (self *Crate) Run(args RunArgs) error {
-	// lookup container
-	/*
-		container, err := self.Load(args.Id)
-		if err != nil {
-			return err
-		}
-	*/
-
+func (self *Crate) Run(id string, args RunArgs) error {
 	fmt.Println("OUTSIDE: Dialing...")
 	conn, err := net.Dial("unix", "/home/vagrant/busybox/crate.socket")
 	if err != nil {
@@ -29,7 +21,8 @@ func (self *Crate) Run(args RunArgs) error {
 	}
 
 	fmt.Println("OUTSIDE: Writing...")
-	if _, err := conn.Write([]byte("hello initer!\n")); err != nil {
+
+	if err := json.NewEncoder(conn).Encode(&args); err != nil {
 		return err
 	}
 

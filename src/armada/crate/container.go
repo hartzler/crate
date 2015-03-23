@@ -2,6 +2,7 @@ package crate
 
 import (
 	"github.com/docker/libcontainer"
+	"os"
 )
 
 // small wrapper around libcontainer.Container
@@ -14,6 +15,7 @@ type Container struct {
 type Status struct {
 	libcontainer.Status
 	*libcontainer.State
+	Pretty string
 }
 
 func (self *Container) Start(process *libcontainer.Process) error {
@@ -29,18 +31,43 @@ func (self *Container) Status() (*Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	pretty := switch status {
-		case libcontainer.Running: "running"
-		case libcontainer.Pausing: "pausing"
-		case libcontainer.Paused: "paused"
-		case libcontainer.Destroyed: "destroyed"
+	pretty := "unknown"
+	switch status {
+	case libcontainer.Running:
+		pretty = "running"
+	case libcontainer.Pausing:
+		pretty = "pausing"
+	case libcontainer.Paused:
+		pretty = "paused"
+	case libcontainer.Destroyed:
+		pretty = "destroyed"
 	}
-	return &Status{status, state}, nil
+
+	return &Status{status, state, pretty}, nil
 }
 
 func (self *Container) Destroy() error {
-	err := self.container.Destroy()
-	return err
+	// can't call this as the state is wrong... sigh
+	//return self.container.Destroy()
+
+	// kill all processes in this container
+	pids, err := self.Processes()
+	if err != nil {
+		return err
+	}
+
+	for _, pid := range pids {
+		p, err := os.FindProcess(pid)
+		if err != nil {
+			return err
+		}
+		err = p.Kill()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (self *Container) Pause() error {
