@@ -6,16 +6,16 @@ For more details of the networking see: network.md
 
     NAME:
        crate - manage containers and connections
-    
+
     USAGE:
        crate [global options] command [command options] [arguments...]
-    
+
     VERSION:
        0.1
-    
+
     AUTHOR:
       Author - <matt@armada.io>
-    
+
     COMMANDS:
        setup	create the network bridge [bridge-name]
        create	creates a new container
@@ -26,7 +26,7 @@ For more details of the networking see: network.md
        pids		list the pids of a container
        status	show the status of a container
        help, h	Shows a list of commands or help for one command
-       
+
     GLOBAL OPTIONS:
        --root "/var/lib/crate/containers"	root directory for containers
        --log-file 				set the log file to output logs to

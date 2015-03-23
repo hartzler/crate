@@ -48,6 +48,8 @@ func runCrate() {
 	app.Version = "0.1"
 	app.Name = "crate"
 	app.Usage = "manage containers and connections"
+	app.Author = "Matt Hartzler"
+	app.Email = "matt@armada.io"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "root", Value: "/var/lib/crate/containers", Usage: "root directory for containers"},
 		cli.StringFlag{Name: "log-file", Value: "", Usage: "set the log file to output logs to"},
