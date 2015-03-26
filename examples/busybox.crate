@@ -1,0 +1,4 @@
+hooks:
+  start: ifconfig
+cargo:
+  - /home/vagrant/5581dc785e49e0898aa2e38f947144c956604a51efeca2297c414c05349de1a5.tar

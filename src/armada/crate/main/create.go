@@ -1,6 +1,7 @@
 package main
 
 import (
+	"armada/crate"
 	"fmt"
 	"github.com/codegangsta/cli"
 )
@@ -21,7 +22,6 @@ var CreateCommand = cli.Command{
 		cli.StringFlag{Name: "apparmor-profile", Usage: "set the apparmor profile"},
 		cli.StringFlag{Name: "process-label", Usage: "set the process label"},
 		cli.StringFlag{Name: "mount-label", Usage: "set the mount label"},
-		cli.StringFlag{Name: "rootfs", Usage: "set the rootfs"},
 		cli.IntFlag{Name: "userns-root-uid", Usage: "set the user namespace root uid"},
 		cli.StringFlag{Name: "hostname", Value: "crate", Usage: "hostname value for the container"},
 		cli.StringFlag{Name: "bridge", Value: "armada0", Usage: "name of bridge interface"},
@@ -32,13 +32,22 @@ var CreateCommand = cli.Command{
 	},
 	Action: func(context *cli.Context) {
 		id := context.String("id")
-		config := getTemplate(id)
-		modify(config, context)
 
-		fmt.Println(config)
+		args := context.Args()
+
+		// .crate file
+		dotcrate, err := crate.LoadDot(args[0])
+		if err != nil {
+			fatal(err)
+		}
+
+		// libconfig
+		libconfig := getTemplate(id)
+		modify(libconfig, context)
+		fmt.Println(libconfig)
 
 		crate := fromContext(context)
-		if _, err := crate.Create(id, config); err != nil {
+		if _, err := crate.Create(id, dotcrate, libconfig); err != nil {
 			fatal(err)
 		}
 	},
