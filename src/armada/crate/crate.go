@@ -107,7 +107,13 @@ func setupLibcontainer(id, containerDir string, libconfig *configs.Config) (libc
 		return nil, err
 	}
 
-	factory, err := libcontainer.New(containerDir, libcontainer.Cgroupfs)
+	// get absolute path our ourselves
+	exePath, err := os.Readlink("/proc/self/exe")
+	if err != nil {
+		return nil, err
+	}
+	// ugly hack to get libcontainer to use absolute path...
+	factory, err := libcontainer.New(containerDir, libcontainer.InitPath(exePath, exePath, "init"))
 	if err != nil {
 		return nil, err
 	}
