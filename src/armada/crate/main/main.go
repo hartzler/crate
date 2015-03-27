@@ -38,6 +38,7 @@ func runLibcontainerInit() {
 		fatal(err)
 	}
 	if err := factory.StartInitialization(3); err != nil {
+		fmt.Println("umm...")
 		fatal(err)
 	}
 	panic("unreachable")
@@ -51,7 +52,7 @@ func runCrate() {
 	app.Author = "Matt Hartzler"
 	app.Email = "matt@armada.io"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{Name: "root", Value: "/var/lib/crate/containers", Usage: "root directory for containers"},
+		cli.StringFlag{Name: "root", Value: "/var/lib/crate", Usage: "root directory for crate state"},
 		cli.StringFlag{Name: "log-file", Value: "", Usage: "set the log file to output logs to"},
 		cli.BoolFlag{Name: "debug", Usage: "enable debug output in the logs"},
 	}

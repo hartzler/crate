@@ -30,7 +30,7 @@ A yaml file that describes how a component is packed into a crate.
       connection-http-down:
 
     cargo:
-    - 123abc.tar
+    - http://cargo.armada.io/5581dc785e49e0898aa2e38f947144c956604a51efeca2297c414c05349de1a5.tar
 
 
 ### example: crates.armada.io/mysql.crate

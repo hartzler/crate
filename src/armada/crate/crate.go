@@ -24,27 +24,36 @@ var StandardEnvironment = []string{
 }
 
 type Crate struct {
-	Root string
+	Root  string
+	Cargo *Cargo
 }
 
 func New(root string) *Crate {
-	return &Crate{root}
+	return &Crate{
+		Root:  root,
+		Cargo: NewCargo(filepath.Join(root, "cargo")),
+	}
+}
+
+func (self *Crate) containersRoot() string {
+	return filepath.Join(self.Root, "containers")
 }
 
 func (self *Crate) SetupRoot() error {
-	if _, err := os.Stat(self.Root); os.IsNotExist(err) {
-		return os.MkdirAll(self.Root, 0700)
+	containersDir := self.containersRoot()
+	if _, err := os.Stat(containersDir); os.IsNotExist(err) {
+		return os.MkdirAll(containersDir, 0700)
 	}
 	return nil
 }
 
 func (self *Crate) factory(id string) (libcontainer.Factory, error) {
-	containerDir := filepath.Join(self.Root, id)
+	containerDir := filepath.Join(self.containersRoot(), id)
 	return libcontainer.New(containerDir, libcontainer.Cgroupfs)
 }
 
 func (self *Crate) path(id string) string {
-	return filepath.Join(self.Root, id)
+	return filepath.Join(self.containersRoot(), id)
 }
 
 // TODO switch to our own config which includes options, a Dotcrate, and a libcontainer configs.Config
@@ -54,7 +63,7 @@ func (self *Crate) Create(id string, dotcrate *Dotcrate, libconfig *configs.Conf
 	containerDir := self.path(id)
 	rootfs := filepath.Join(containerDir, "rootfs")
 	libconfig.Rootfs = rootfs
-	if err := setupRootfs(rootfs, dotcrate); err != nil {
+	if err := self.setupRootfs(rootfs, dotcrate); err != nil {
 		return nil, err
 	}
 
@@ -110,21 +119,27 @@ func setupLibcontainer(id, containerDir string, libconfig *configs.Config) (libc
 	return container, nil
 }
 
-func setupRootfs(rootfs string, dotcrate *Dotcrate) error {
+func (self *Crate) setupRootfs(rootfs string, dotcrate *Dotcrate) error {
 	if err := os.MkdirAll(rootfs, 0700); err != nil {
 		return err
 	}
 
 	// extract cargo!
 	for _, path := range dotcrate.Cargo {
-		//pieces := strings.Split(path, "/")
-		//tarfile := pieces[len(pieces)-1]
-		//err = os.Stat(tarfile);
-		file, err := os.Open(path)
+		// make sure we got it!
+		fmt.Println("Fetching: ", path)
+		hash, err := self.Cargo.fetch(path)
 		if err != nil {
 			return err
 		}
-		if err = tar.Extract(file, rootfs); err != nil {
+		reader, err := self.Cargo.load(hash)
+		if err != nil {
+			return err
+		}
+		defer reader.Close()
+
+		fmt.Println("Extracting: ", hash)
+		if err = tar.Extract(reader, rootfs); err != nil {
 			return err
 		}
 	}

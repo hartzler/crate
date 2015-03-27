@@ -17,6 +17,7 @@ var SocketFile = "crate.socket"
 func CrateInit() {
 
 	// clear if exists
+	fmt.Println("CRATE-INIT: starting...")
 	os.Remove("/" + SocketFile)
 
 	// set permission on listen to 0600...
