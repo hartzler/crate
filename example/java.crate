@@ -1,4 +1,5 @@
 hooks:
-  start: java -version
+  start:
+    command: /opt/jdk/bin/java -version
 cargo:
   - https://s3.amazonaws.com/armada-crates/cargo/26cf93db776362bebc35cff379a65fa17aacf5d429785a080e3f3a73701caa71.cargo

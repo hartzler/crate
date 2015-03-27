@@ -2,7 +2,6 @@ package crate
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"path/filepath"
 )
@@ -14,25 +13,30 @@ type RunArgs struct {
 	Cwd  string
 }
 
-func (self *Crate) Run(id string, args RunArgs) error {
-	fmt.Println("OUTSIDE: Dialing...")
+func (self *Crate) Run(id, hook string, args RunArgs) error {
+
+	if hook != "" {
+		dotcrate, err := LoadDot(filepath.Join(self.path(id), "dotcrate"))
+		if err != nil {
+			return err
+		}
+		args.Args = append([]string{dotcrate.Hooks[hook].Command}, args.Args...)
+		args.Env = append(dotcrate.Hooks[hook].Env, args.Env...)
+	}
+
 	conn, err := net.Dial("unix", filepath.Join(self.containersRoot(), id, "rootfs", "crate.socket"))
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("OUTSIDE: Writing...")
-
 	if err := json.NewEncoder(conn).Encode(&args); err != nil {
 		return err
 	}
 
-	fmt.Println("OUTSIDE: Hanging up...")
 	if err = conn.Close(); err != nil {
 		return err
 	}
 
-	fmt.Println("OUTSIDE: Finished.")
 	return nil
 
 }
