@@ -1,6 +1,7 @@
 package crate
 
 import (
+	"compress/bzip2"
 	"github.com/peterbourgon/diskv"
 	"io"
 	"net/http"
@@ -51,7 +52,20 @@ func (self *Cargo) fetch(cargoUrl string) (string, error) {
 }
 
 func (self *Cargo) load(hash string) (io.ReadCloser, error) {
-	return self.kv.ReadStream(hash, true)
+	reader, err := self.kv.ReadStream(hash, true)
+	if err != nil {
+		return nil, err
+	}
+	return readCloser{bzip2.NewReader(reader), reader}, nil
+}
+
+type readCloser struct {
+	io.Reader
+	closer io.Closer
+}
+
+func (self readCloser) Close() error {
+	return self.closer.Close()
 }
 
 func (self *Cargo) remove(hash string) error {

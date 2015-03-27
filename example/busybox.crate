@@ -1,4 +1,4 @@
 hooks:
   start: ifconfig
 cargo:
-  - https://s3.amazonaws.com/armada-crates/cargo/5581dc785e49e0898aa2e38f947144c956604a51efeca2297c414c05349de1a5.tar
+  - https://s3.amazonaws.com/armada-crates/cargo/09f2059bcc00314b072d35b436b462bdc12d3cf7d3ca88e6467403764b1a8b9e.cargo
