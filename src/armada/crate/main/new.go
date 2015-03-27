@@ -6,8 +6,8 @@ import (
 	"github.com/codegangsta/cli"
 )
 
-var CreateCommand = cli.Command{
-	Name:        "create",
+var newCommand = cli.Command{
+	Name:        "new",
 	Usage:       "creates a container",
 	Description: "args: <crate> <id>",
 	Flags: []cli.Flag{

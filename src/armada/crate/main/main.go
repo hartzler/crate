@@ -57,8 +57,8 @@ func runCrate() {
 		cli.BoolFlag{Name: "debug", Usage: "enable debug output in the logs"},
 	}
 	app.Commands = []cli.Command{
-		SetupCommand,
-		CreateCommand,
+		setupCommand,
+		newCommand,
 		runCommand,
 		destroyCommand,
 		pauseCommand,

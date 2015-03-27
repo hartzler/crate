@@ -18,8 +18,8 @@ For more details of the networking see: [doc/network.md](doc/network.md)
 
     COMMANDS:
        setup	create the network bridge [bridge-name]
-       create	creates a new container
-       run		start a process inside a container
+       new      creates a new container
+       run      start a process inside a container
        destroy	destroy the container
        pause	pause the container's processes
        resume	resume the container's processes
@@ -56,6 +56,6 @@ Next try out the example/busybox.crate
 
     # create the bridge (one time only)
     ./bin/crate setup
-    ./bin/crate create --address=10.4.3.1/16 example/busybox.crate test1
+    ./bin/crate new --address=10.4.3.1/16 example/busybox.crate test1
     ./bin/crate run test1 ifconfig
     ./bin/crate destroy test1

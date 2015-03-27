@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var SetupCommand = cli.Command{
+var setupCommand = cli.Command{
 	Name:  "setup",
 	Usage: "create the network bridge link",
 	Flags: []cli.Flag{
