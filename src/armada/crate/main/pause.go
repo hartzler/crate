@@ -1,17 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"github.com/codegangsta/cli"
 )
 
 var pauseCommand = cli.Command{
-	Name:  "pause",
-	Usage: "pause the container's processes",
-	Flags: []cli.Flag{
-		cli.StringFlag{Name: "id", Usage: "ID for the container"},
-	},
+	Name:        "pause",
+	Usage:       "pause the container's processes",
+	Description: "args: <id>",
 	Action: func(context *cli.Context) {
-		container, err := getContainer(context)
+		args := context.Args()
+		if len(args) != 1 {
+			fatal(fmt.Errorf("expected 1 arguments <id>: %d", len(args)))
+		}
+		id := args[0]
+
+		container, err := getContainer(context, id)
 		if err != nil {
 			fatal(err)
 		}
@@ -22,13 +27,17 @@ var pauseCommand = cli.Command{
 }
 
 var unpauseCommand = cli.Command{
-	Name:  "resume",
-	Usage: "resume the container's processes",
-	Flags: []cli.Flag{
-		cli.StringFlag{Name: "id", Value: "nsinit", Usage: "specify the ID for a container"},
-	},
+	Name:        "resume",
+	Usage:       "resume the container's processes",
+	Description: "args: <id>",
 	Action: func(context *cli.Context) {
-		container, err := getContainer(context)
+		args := context.Args()
+		if len(args) != 1 {
+			fatal(fmt.Errorf("expected 1 arguments <id>: %d", len(args)))
+		}
+		id := args[0]
+
+		container, err := getContainer(context, id)
 		if err != nil {
 			fatal(err)
 		}

@@ -1,17 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"github.com/codegangsta/cli"
 )
 
 var destroyCommand = cli.Command{
-	Name:  "destroy",
-	Usage: "destroy the container",
-	Flags: []cli.Flag{
-		cli.StringFlag{Name: "id", Usage: "ID of the container"},
-	},
+	Name:        "destroy",
+	Usage:       "destroys a container",
+	Description: "args: <id>",
 	Action: func(context *cli.Context) {
-		if err := fromContext(context).Destroy(context.String("id")); err != nil {
+		args := context.Args()
+		if len(args) != 1 {
+			fatal(fmt.Errorf("expected 1 arguments <id>: %d", len(args)))
+		}
+		id := args[0]
+
+		if err := fromContext(context).Destroy(id); err != nil {
 			fatal(err)
 		}
 	},

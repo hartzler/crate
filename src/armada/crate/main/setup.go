@@ -10,7 +10,7 @@ import (
 
 var SetupCommand = cli.Command{
 	Name:  "setup",
-	Usage: "create the network bridge [bridge-name]",
+	Usage: "create the network bridge link",
 	Flags: []cli.Flag{
 		cli.StringFlag{Name: "bip", Value: "10.4.0.255/16", Usage: "ID for the container"},
 		cli.StringFlag{Name: "bridge", Value: "armada0", Usage: "name for the armada bridge"},

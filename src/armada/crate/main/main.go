@@ -89,8 +89,8 @@ func fromContext(context *cli.Context) *crate.Crate {
 	return crate.New(context.GlobalString("root"))
 }
 
-func getContainer(context *cli.Context) (*crate.Container, error) {
-	return fromContext(context).Load(context.String("id"))
+func getContainer(context *cli.Context, id string) (*crate.Container, error) {
+	return fromContext(context).Load(id)
 }
 
 func fatal(err error) {

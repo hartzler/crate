@@ -7,10 +7,10 @@ import (
 )
 
 var CreateCommand = cli.Command{
-	Name:  "create",
-	Usage: "creates a new container",
+	Name:        "create",
+	Usage:       "creates a container",
+	Description: "args: <crate> <id>",
 	Flags: []cli.Flag{
-		cli.StringFlag{Name: "id", Usage: "specify the ID for a container"},
 		cli.BoolFlag{Name: "read-only", Usage: "set the container's rootfs as read-only"},
 		cli.StringSliceFlag{Name: "bind", Value: &cli.StringSlice{}, Usage: "add bind mounts to the container"},
 		cli.StringSliceFlag{Name: "tmpfs", Value: &cli.StringSlice{}, Usage: "add tmpfs mounts to the container"},
@@ -31,15 +31,20 @@ var CreateCommand = cli.Command{
 		cli.IntFlag{Name: "txq", Value: 200, Usage: "veth tx queue length"},
 	},
 	Action: func(context *cli.Context) {
-		id := context.String("id")
 
 		args := context.Args()
+		if len(args) != 2 {
+			fatal(fmt.Errorf("expected 2 arguments <crate> <id>"))
+		}
 
 		// .crate file
 		dotcrate, err := crate.LoadDot(args[0])
 		if err != nil {
 			fatal(err)
 		}
+
+		// id
+		id := args[1]
 
 		// libconfig
 		libconfig := getTemplate(id)

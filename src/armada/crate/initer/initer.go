@@ -56,6 +56,7 @@ func handle(conn net.Conn) error {
 
 	// just inherit out/err for now...
 	cmd := exec.Command(args.Args[0], args.Args[1:]...)
+	cmd.Env = args.Env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
