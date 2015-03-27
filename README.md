@@ -1,6 +1,6 @@
 Crate is a libcontainer based container manager.  It is intended to be used in conjunction with an overlay network to make containers from different hosts act as if they are on the same virtual network.  Container IPs are intended to be stable and unique across the network, so containers can be moved around by only adjusting routing entires.
 
-For more details of the networking see: network.md
+For more details of the networking see: [doc/network.md](doc/network.md)
 
 ## Usage
 
@@ -36,8 +36,24 @@ For more details of the networking see: network.md
 
 ## Crate Image
 
-Applications are packaged into a "crate" file.
+Applications are packaged into a "crate" file.  See [doc/image.md](doc/image.md)
 
 ## Crate Container (Runtime Environment)
 
 The environment that the crate processes run in, or the "container".
+
+## Hacking
+
+To get started, use vagrant and build / run crate as root:
+
+    vagrant up
+    vagrant ssh
+    sudo -i
+    cd /vagrant
+    ./build.sh
+
+Next try out the example/busybox.crate
+
+    ./bin/crate create --id=test1 --address=10.4.3.1/16 example/busybox.crate
+    ./bin/crate run --id=test1 ifconfig
+    ./bin/crate destroy --id=test1
