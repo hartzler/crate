@@ -44,6 +44,7 @@ func (self *Cargo) fetch(cargoUrl string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 
 	// write and fsync
 	return filename, self.kv.WriteStream(filename, res.Body, true)
