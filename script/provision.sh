@@ -2,7 +2,7 @@
 GOTAR=go1.4.2.linux-amd64.tar.gz
 if [ ! -d /usr/local/go ]; then
   if [ ! -f "$GOTAR" ]; then
-    wget https://storage.googleapis.com/golang/$GOTAR
+    wget -q https://storage.googleapis.com/golang/$GOTAR
   fi
   tar -xzf $GOTAR &>/dev/null
   mv go /usr/local/
