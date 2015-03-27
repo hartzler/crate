@@ -16,7 +16,7 @@ type RunArgs struct {
 
 func (self *Crate) Run(id string, args RunArgs) error {
 	fmt.Println("OUTSIDE: Dialing...")
-	conn, err := net.Dial("unix", filepath.Join(self.Root, id, "rootfs", "crate.socket"))
+	conn, err := net.Dial("unix", filepath.Join(self.containersRoot(), id, "rootfs", "crate.socket"))
 	if err != nil {
 		return err
 	}
