@@ -3,7 +3,7 @@
 package libcontainer
 
 import (
-	"fmt"
+	"os"
 	"syscall"
 
 	"github.com/docker/libcontainer/apparmor"
@@ -13,11 +13,11 @@ import (
 )
 
 type linuxStandardInit struct {
-	config *initConfig
+	parentPid int
+	config    *initConfig
 }
 
 func (l *linuxStandardInit) Init() error {
-	fmt.Println("LIBCONTAINER: init...")
 	// join any namespaces via a path to the namespace fd if provided
 	if err := joinExistingNamespaces(l.config.Config.Namespaces); err != nil {
 		return err
@@ -37,7 +37,6 @@ func (l *linuxStandardInit) Init() error {
 			return err
 		}
 	}
-	fmt.Println("LIBCONTAINER: setup network...")
 	if err := setupNetwork(l.config); err != nil {
 		return err
 	}
@@ -48,14 +47,12 @@ func (l *linuxStandardInit) Init() error {
 		return err
 	}
 	label.Init()
-	fmt.Println("LIBCONTAINER: setupRootfs...")
 	// InitializeMountNamespace() can be executed only for a new mount namespace
 	if l.config.Config.Namespaces.Contains(configs.NEWNS) {
 		if err := setupRootfs(l.config.Config, console); err != nil {
 			return err
 		}
 	}
-	fmt.Println("LIBCONTAINER: sethostname...")
 	if hostname := l.config.Config.Hostname; hostname != "" {
 		if err := syscall.Sethostname([]byte(hostname)); err != nil {
 			return err
@@ -67,12 +64,18 @@ func (l *linuxStandardInit) Init() error {
 	if err := label.SetProcessLabel(l.config.Config.ProcessLabel); err != nil {
 		return err
 	}
+
+	for key, value := range l.config.Config.SystemProperties {
+		if err := writeSystemProperty(key, value); err != nil {
+			return err
+		}
+	}
+
 	for _, path := range l.config.Config.ReadonlyPaths {
 		if err := remountReadonly(path); err != nil {
 			return err
 		}
 	}
-	fmt.Println("LIBCONTAINER: masking...")
 	for _, path := range l.config.Config.MaskPaths {
 		if err := maskFile(path); err != nil {
 			return err
@@ -90,11 +93,11 @@ func (l *linuxStandardInit) Init() error {
 	if err := pdeath.Restore(); err != nil {
 		return err
 	}
-	// Signal self if parent is already dead. Does nothing if running in a new
-	// PID namespace, as Getppid will always return 0.
-	if syscall.Getppid() == 1 {
+	// compare the parent from the inital start of the init process and make sure that it did not change.
+	// if the parent changes that means it died and we were reparened to something else so we should
+	// just kill ourself and not cause problems for someone else.
+	if syscall.Getppid() != l.parentPid {
 		return syscall.Kill(syscall.Getpid(), syscall.SIGKILL)
 	}
-	fmt.Println("LIBCONTAINER: execv...")
-	return system.Execv(l.config.Args[0], l.config.Args[0:], l.config.Env)
+	return system.Execv(l.config.Args[0], l.config.Args[0:], os.Environ())
 }

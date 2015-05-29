@@ -1,6 +1,10 @@
+// +build linux
+
 package fs
 
 import (
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -19,6 +23,9 @@ var (
 		"cpuset":     &CpusetGroup{},
 		"cpuacct":    &CpuacctGroup{},
 		"blkio":      &BlkioGroup{},
+		"hugetlb":    &HugetlbGroup{},
+		"net_cls":    &NetClsGroup{},
+		"net_prio":   &NetPrioGroup{},
 		"perf_event": &PerfEventGroup{},
 		"freezer":    &FreezerGroup{},
 	}
@@ -37,6 +44,7 @@ type subsystem interface {
 }
 
 type Manager struct {
+	mu      sync.Mutex
 	Cgroups *configs.Cgroup
 	Paths   map[string]string
 }
@@ -54,12 +62,10 @@ func getCgroupRoot() (string, error) {
 		return cgroupRoot, nil
 	}
 
-	// we can pick any subsystem to find the root
-	cpuRoot, err := cgroups.FindCgroupMountpoint("cpu")
+	root, err := cgroups.FindCgroupMountpointDir()
 	if err != nil {
 		return "", err
 	}
-	root := filepath.Dir(cpuRoot)
 
 	if _, err := os.Stat(root); err != nil {
 		return "", err
@@ -80,6 +86,8 @@ func (m *Manager) Apply(pid int) error {
 	if m.Cgroups == nil {
 		return nil
 	}
+
+	var c = m.Cgroups
 
 	d, err := getCgroupData(m.Cgroups, pid)
 	if err != nil {
@@ -110,31 +118,35 @@ func (m *Manager) Apply(pid int) error {
 	}
 	m.Paths = paths
 
+	if paths["cpu"] != "" {
+		if err := CheckCpushares(paths["cpu"], c.CpuShares); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (m *Manager) Destroy() error {
-	return cgroups.RemovePaths(m.Paths)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := cgroups.RemovePaths(m.Paths); err != nil {
+		return err
+	}
+	m.Paths = make(map[string]string)
+	return nil
 }
 
 func (m *Manager) GetPaths() map[string]string {
-	return m.Paths
-}
-
-// Symmetrical public function to update device based cgroups.  Also available
-// in the systemd implementation.
-func ApplyDevices(c *configs.Cgroup, pid int) error {
-	d, err := getCgroupData(c, pid)
-	if err != nil {
-		return err
-	}
-
-	devices := subsystems["devices"]
-
-	return devices.Apply(d)
+	m.mu.Lock()
+	paths := m.Paths
+	m.mu.Unlock()
+	return paths
 }
 
 func (m *Manager) GetStats() (*cgroups.Stats, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	stats := cgroups.NewStats()
 	for name, path := range m.Paths {
 		sys, ok := subsystems[name]
@@ -171,11 +183,16 @@ func (m *Manager) Freeze(state configs.FreezerState) error {
 		return err
 	}
 
+	dir, err := d.path("freezer")
+	if err != nil {
+		return err
+	}
+
 	prevState := m.Cgroups.Freezer
 	m.Cgroups.Freezer = state
 
 	freezer := subsystems["freezer"]
-	err = freezer.Apply(d)
+	err = freezer.Set(dir, m.Cgroups)
 	if err != nil {
 		m.Cgroups.Freezer = prevState
 		return err
@@ -217,31 +234,27 @@ func getCgroupData(c *configs.Cgroup, pid int) (*data, error) {
 	}, nil
 }
 
-func (raw *data) parent(subsystem string) (string, error) {
+func (raw *data) parent(subsystem, mountpoint string) (string, error) {
 	initPath, err := cgroups.GetInitCgroupDir(subsystem)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(raw.root, subsystem, initPath), nil
+	return filepath.Join(mountpoint, initPath), nil
 }
 
 func (raw *data) path(subsystem string) (string, error) {
-	// If the cgroup name/path is absolute do not look relative to the cgroup of the init process.
-	if filepath.IsAbs(raw.cgroup) {
-		path := filepath.Join(raw.root, subsystem, raw.cgroup)
-
-		if _, err := os.Stat(path); err != nil {
-			if os.IsNotExist(err) {
-				return "", cgroups.NewNotFoundError(subsystem)
-			}
-
-			return "", err
-		}
-
-		return path, nil
+	mnt, err := cgroups.FindCgroupMountpoint(subsystem)
+	// If we didn't mount the subsystem, there is no point we make the path.
+	if err != nil {
+		return "", err
 	}
 
-	parent, err := raw.parent(subsystem)
+	// If the cgroup name/path is absolute do not look relative to the cgroup of the init process.
+	if filepath.IsAbs(raw.cgroup) {
+		return filepath.Join(raw.root, subsystem, raw.cgroup), nil
+	}
+
+	parent, err := raw.parent(subsystem, mnt)
 	if err != nil {
 		return "", err
 	}
@@ -264,6 +277,11 @@ func (raw *data) join(subsystem string) (string, error) {
 }
 
 func writeFile(dir, file, data string) error {
+	// Normally dir should not be empty, one case is that cgroup subsystem
+	// is not mounted, we will get empty dir, and we want it fail here.
+	if dir == "" {
+		return fmt.Errorf("no such directory for %s.", file)
+	}
 	return ioutil.WriteFile(filepath.Join(dir, file), []byte(data), 0700)
 }
 
@@ -279,5 +297,29 @@ func removePath(p string, err error) error {
 	if p != "" {
 		return os.RemoveAll(p)
 	}
+	return nil
+}
+
+func CheckCpushares(path string, c int64) error {
+	var cpuShares int64
+
+	fd, err := os.Open(filepath.Join(path, "cpu.shares"))
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	_, err = fmt.Fscanf(fd, "%d", &cpuShares)
+	if err != nil && err != io.EOF {
+		return err
+	}
+	if c != 0 {
+		if c > cpuShares {
+			return fmt.Errorf("The maximum allowed cpu-shares is %d", cpuShares)
+		} else if c < cpuShares {
+			return fmt.Errorf("The minimum allowed cpu-shares is %d", cpuShares)
+		}
+	}
+
 	return nil
 }

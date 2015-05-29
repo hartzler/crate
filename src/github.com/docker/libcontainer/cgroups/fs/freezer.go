@@ -1,6 +1,9 @@
+// +build linux
+
 package fs
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,20 +15,13 @@ type FreezerGroup struct {
 }
 
 func (s *FreezerGroup) Apply(d *data) error {
-	switch d.c.Freezer {
-	case configs.Frozen, configs.Thawed:
-		dir, err := d.path("freezer")
-		if err != nil {
-			return err
-		}
+	dir, err := d.join("freezer")
+	if err != nil && !cgroups.IsNotFound(err) {
+		return err
+	}
 
-		if err := s.Set(dir, d.c); err != nil {
-			return err
-		}
-	default:
-		if _, err := d.join("freezer"); err != nil && !cgroups.IsNotFound(err) {
-			return err
-		}
+	if err := s.Set(dir, d.c); err != nil {
+		return err
 	}
 
 	return nil
@@ -48,6 +44,10 @@ func (s *FreezerGroup) Set(path string, cgroup *configs.Cgroup) error {
 			}
 			time.Sleep(1 * time.Millisecond)
 		}
+	case configs.Undefined:
+		return nil
+	default:
+		return fmt.Errorf("Invalid argument '%s' to freezer.state", string(cgroup.Freezer))
 	}
 
 	return nil

@@ -23,9 +23,9 @@ var execCommand = cli.Command{
 	Action: execAction,
 	Flags: append([]cli.Flag{
 		cli.BoolFlag{Name: "tty,t", Usage: "allocate a TTY to the container"},
+		cli.BoolFlag{Name: "systemd", Usage: "Use systemd for managing cgroups, if available"},
 		cli.StringFlag{Name: "id", Value: "nsinit", Usage: "specify the ID for a container"},
-		cli.StringFlag{Name: "config", Value: "container.json", Usage: "path to the configuration file"},
-		cli.BoolFlag{Name: "create", Usage: "create the container's configuration on the fly with arguments"},
+		cli.StringFlag{Name: "config", Value: "", Usage: "path to the configuration file"},
 		cli.StringFlag{Name: "user,u", Value: "root", Usage: "set the user, uid, and/or gid for the process"},
 		cli.StringFlag{Name: "cwd", Value: "", Usage: "set the current working dir"},
 		cli.StringSliceFlag{Name: "env", Value: standardEnvironment, Usage: "set environment variables for the process"},
@@ -93,9 +93,16 @@ func execAction(context *cli.Context) {
 		}
 	}
 	if created {
-		if err := container.Destroy(); err != nil {
+		status, err := container.Status()
+		if err != nil {
 			tty.Close()
 			fatal(err)
+		}
+		if status != libcontainer.Checkpointed {
+			if err := container.Destroy(); err != nil {
+				tty.Close()
+				fatal(err)
+			}
 		}
 	}
 	tty.Close()

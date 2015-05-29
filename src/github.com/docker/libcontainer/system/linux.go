@@ -3,7 +3,6 @@
 package system
 
 import (
-	"fmt"
 	"os/exec"
 	"syscall"
 	"unsafe"
@@ -34,7 +33,7 @@ func Execv(cmd string, args []string, env []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("LIBCONTAINER: running: ", name, args, env)
+
 	return syscall.Exec(name, args, env)
 }
 

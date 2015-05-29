@@ -1,3 +1,5 @@
+// +build linux
+
 package fs
 
 import (
@@ -55,14 +57,105 @@ func TestMemorySetMemory(t *testing.T) {
 	}
 }
 
+func TestMemorySetMemoryswap(t *testing.T) {
+	helper := NewCgroupTestUtil("memory", t)
+	defer helper.cleanup()
+
+	const (
+		memoryswapBefore = 314572800 // 300M
+		memoryswapAfter  = 524288000 // 500M
+	)
+
+	helper.writeFileContents(map[string]string{
+		"memory.memsw.limit_in_bytes": strconv.Itoa(memoryswapBefore),
+	})
+
+	helper.CgroupData.c.MemorySwap = memoryswapAfter
+	memory := &MemoryGroup{}
+	if err := memory.Set(helper.CgroupPath, helper.CgroupData.c); err != nil {
+		t.Fatal(err)
+	}
+
+	value, err := getCgroupParamUint(helper.CgroupPath, "memory.memsw.limit_in_bytes")
+	if err != nil {
+		t.Fatalf("Failed to parse memory.memsw.limit_in_bytes - %s", err)
+	}
+	if value != memoryswapAfter {
+		t.Fatal("Got the wrong value, set memory.memsw.limit_in_bytes failed.")
+	}
+}
+
+func TestMemorySetMemoryswapDefault(t *testing.T) {
+	helper := NewCgroupTestUtil("memory", t)
+	defer helper.cleanup()
+
+	const (
+		memoryBefore    = 209715200 // 200M
+		memoryAfter     = 314572800 // 300M
+		memoryswapAfter = 629145600 // 300M*2
+	)
+
+	helper.writeFileContents(map[string]string{
+		"memory.limit_in_bytes": strconv.Itoa(memoryBefore),
+	})
+
+	helper.CgroupData.c.Memory = memoryAfter
+	memory := &MemoryGroup{}
+	if err := memory.Set(helper.CgroupPath, helper.CgroupData.c); err != nil {
+		t.Fatal(err)
+	}
+
+	value, err := getCgroupParamUint(helper.CgroupPath, "memory.memsw.limit_in_bytes")
+	if err != nil {
+		t.Fatalf("Failed to parse memory.memsw.limit_in_bytes - %s", err)
+	}
+	if value != memoryswapAfter {
+		t.Fatal("Got the wrong value, set memory.memsw.limit_in_bytes failed.")
+	}
+}
+
+func TestMemorySetKernelMemory(t *testing.T) {
+	helper := NewCgroupTestUtil("memory", t)
+	defer helper.cleanup()
+
+	const (
+		kernelMemoryBefore = 314572800 // 300M
+		kernelMemoryAfter  = 524288000 // 500M
+	)
+
+	helper.writeFileContents(map[string]string{
+		"memory.kmem.limit_in_bytes": strconv.Itoa(kernelMemoryBefore),
+	})
+
+	helper.CgroupData.c.KernelMemory = kernelMemoryAfter
+	memory := &MemoryGroup{}
+	if err := memory.Set(helper.CgroupPath, helper.CgroupData.c); err != nil {
+		t.Fatal(err)
+	}
+
+	value, err := getCgroupParamUint(helper.CgroupPath, "memory.kmem.limit_in_bytes")
+	if err != nil {
+		t.Fatalf("Failed to parse memory.kmem.limit_in_bytes - %s", err)
+	}
+	if value != kernelMemoryAfter {
+		t.Fatal("Got the wrong value, set memory.kmem.limit_in_bytes failed.")
+	}
+}
+
 func TestMemoryStats(t *testing.T) {
 	helper := NewCgroupTestUtil("memory", t)
 	defer helper.cleanup()
 	helper.writeFileContents(map[string]string{
-		"memory.stat":               memoryStatContents,
-		"memory.usage_in_bytes":     memoryUsageContents,
-		"memory.max_usage_in_bytes": memoryMaxUsageContents,
-		"memory.failcnt":            memoryFailcnt,
+		"memory.stat":                     memoryStatContents,
+		"memory.usage_in_bytes":           memoryUsageContents,
+		"memory.max_usage_in_bytes":       memoryMaxUsageContents,
+		"memory.failcnt":                  memoryFailcnt,
+		"memory.memsw.usage_in_bytes":     memoryUsageContents,
+		"memory.memsw.max_usage_in_bytes": memoryMaxUsageContents,
+		"memory.memsw.failcnt":            memoryFailcnt,
+		"memory.kmem.usage_in_bytes":      memoryUsageContents,
+		"memory.kmem.max_usage_in_bytes":  memoryMaxUsageContents,
+		"memory.kmem.failcnt":             memoryFailcnt,
 	})
 
 	memory := &MemoryGroup{}
@@ -71,7 +164,7 @@ func TestMemoryStats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedStats := cgroups.MemoryStats{Usage: 2048, MaxUsage: 4096, Failcnt: 100, Stats: map[string]uint64{"cache": 512, "rss": 1024}}
+	expectedStats := cgroups.MemoryStats{Cache: 512, Usage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100}, SwapUsage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100}, KernelUsage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100}, Stats: map[string]uint64{"cache": 512, "rss": 1024}}
 	expectMemoryStatEquals(t, expectedStats, actualStats.MemoryStats)
 }
 
@@ -171,5 +264,32 @@ func TestMemoryStatsBadMaxUsageFile(t *testing.T) {
 	err := memory.GetStats(helper.CgroupPath, &actualStats)
 	if err == nil {
 		t.Fatal("Expected failure")
+	}
+}
+
+func TestMemorySetOomControl(t *testing.T) {
+	helper := NewCgroupTestUtil("memory", t)
+	defer helper.cleanup()
+
+	const (
+		oom_kill_disable = 1 // disable oom killer, default is 0
+	)
+
+	helper.writeFileContents(map[string]string{
+		"memory.oom_control": strconv.Itoa(oom_kill_disable),
+	})
+
+	memory := &MemoryGroup{}
+	if err := memory.Set(helper.CgroupPath, helper.CgroupData.c); err != nil {
+		t.Fatal(err)
+	}
+
+	value, err := getCgroupParamUint(helper.CgroupPath, "memory.oom_control")
+	if err != nil {
+		t.Fatalf("Failed to parse memory.oom_control - %s", err)
+	}
+
+	if value != oom_kill_disable {
+		t.Fatalf("Got the wrong value, set memory.oom_control failed.")
 	}
 }

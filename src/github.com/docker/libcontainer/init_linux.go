@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/libcontainer/cgroups"
 	"github.com/docker/libcontainer/configs"
 	"github.com/docker/libcontainer/netlink"
@@ -40,13 +40,15 @@ type network struct {
 
 // initConfig is used for transferring parameters from Exec() to Init()
 type initConfig struct {
-	Args     []string        `json:"args"`
-	Env      []string        `json:"env"`
-	Cwd      string          `json:"cwd"`
-	User     string          `json:"user"`
-	Config   *configs.Config `json:"config"`
-	Console  string          `json:"console"`
-	Networks []*network      `json:"network"`
+	Args             []string        `json:"args"`
+	Env              []string        `json:"env"`
+	Cwd              string          `json:"cwd"`
+	Capabilities     []string        `json:"capabilities"`
+	User             string          `json:"user"`
+	Config           *configs.Config `json:"config"`
+	Console          string          `json:"console"`
+	Networks         []*network      `json:"network"`
+	PassedFilesCount int             `json:"passed_files_count"`
 }
 
 type initer interface {
@@ -61,7 +63,6 @@ func newContainerInit(t initType, pipe *os.File) (initer, error) {
 	if err := populateProcessEnvironment(config.Env); err != nil {
 		return nil, err
 	}
-	fmt.Println("LIBCONTAINER: init type:", t)
 	switch t {
 	case initSetns:
 		return &linuxSetnsInit{
@@ -69,7 +70,8 @@ func newContainerInit(t initType, pipe *os.File) (initer, error) {
 		}, nil
 	case initStandard:
 		return &linuxStandardInit{
-			config: config,
+			parentPid: syscall.Getppid(),
+			config:    config,
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown init type %q", t)
@@ -92,15 +94,20 @@ func populateProcessEnvironment(env []string) error {
 
 // finalizeNamespace drops the caps, sets the correct user
 // and working dir, and closes any leaked file descriptors
-// before execing the command inside the namespace
+// before executing the command inside the namespace
 func finalizeNamespace(config *initConfig) error {
-	// Ensure that all non-standard fds we may have accidentally
+	// Ensure that all unwanted fds we may have accidentally
 	// inherited are marked close-on-exec so they stay out of the
 	// container
-	if err := utils.CloseExecFrom(3); err != nil {
+	if err := utils.CloseExecFrom(config.PassedFilesCount + 3); err != nil {
 		return err
 	}
-	w, err := newCapWhitelist(config.Config.Capabilities)
+
+	capabilities := config.Config.Capabilities
+	if config.Capabilities != nil {
+		capabilities = config.Capabilities
+	}
+	w, err := newCapWhitelist(capabilities)
 	if err != nil {
 		return err
 	}
@@ -227,7 +234,7 @@ func setupRlimits(config *configs.Config) error {
 func killCgroupProcesses(m cgroups.Manager) error {
 	var procs []*os.Process
 	if err := m.Freeze(configs.Frozen); err != nil {
-		log.Warn(err)
+		logrus.Warn(err)
 	}
 	pids, err := m.GetPids()
 	if err != nil {
@@ -238,16 +245,16 @@ func killCgroupProcesses(m cgroups.Manager) error {
 		if p, err := os.FindProcess(pid); err == nil {
 			procs = append(procs, p)
 			if err := p.Kill(); err != nil {
-				log.Warn(err)
+				logrus.Warn(err)
 			}
 		}
 	}
 	if err := m.Freeze(configs.Thawed); err != nil {
-		log.Warn(err)
+		logrus.Warn(err)
 	}
 	for _, p := range procs {
 		if _, err := p.Wait(); err != nil {
-			log.Warn(err)
+			logrus.Warn(err)
 		}
 	}
 	return nil

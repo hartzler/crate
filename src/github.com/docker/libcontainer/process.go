@@ -3,6 +3,7 @@ package libcontainer
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 )
 
@@ -22,7 +23,7 @@ type Process struct {
 	Env []string
 
 	// User will set the uid and gid of the executing process running inside the container
-	// local to the contaienr's user and group configuration.
+	// local to the container's user and group configuration.
 	User string
 
 	// Cwd will change the processes current working directory inside the container's rootfs.
@@ -37,8 +38,15 @@ type Process struct {
 	// Stderr is a pointer to a writer which receives the standard error stream.
 	Stderr io.Writer
 
+	// ExtraFiles specifies additional open files to be inherited by the container
+	ExtraFiles []*os.File
+
 	// consolePath is the path to the console allocated to the container.
 	consolePath string
+
+	// Capabilities specify the capabilities to keep when executing the process inside the container
+	// All capabilities not specified will be dropped from the processes capability mask
+	Capabilities []string
 
 	ops processOperations
 }
@@ -54,8 +62,10 @@ func (p Process) Wait() (*os.ProcessState, error) {
 
 // Pid returns the process ID
 func (p Process) Pid() (int, error) {
+	// math.MinInt32 is returned here, because it's invalid value
+	// for the kill() system call.
 	if p.ops == nil {
-		return -1, newGenericError(fmt.Errorf("invalid process"), ProcessNotExecuted)
+		return math.MinInt32, newGenericError(fmt.Errorf("invalid process"), ProcessNotExecuted)
 	}
 	return p.ops.pid(), nil
 }

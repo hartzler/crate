@@ -43,6 +43,8 @@ var createFlags = []cli.Flag{
 	cli.StringFlag{Name: "veth-address", Usage: "veth ip address"},
 	cli.StringFlag{Name: "veth-gateway", Usage: "veth gateway address"},
 	cli.IntFlag{Name: "veth-mtu", Usage: "veth mtu"},
+	cli.BoolFlag{Name: "cgroup", Usage: "mount the cgroup data for the container"},
+	cli.StringSliceFlag{Name: "sysctl", Value: &cli.StringSlice{}, Usage: "set system properties in the container"},
 }
 
 var configCommand = cli.Command{
@@ -109,6 +111,14 @@ func modify(config *configs.Config, context *cli.Context) {
 			node.Uid = uint32(userns_uid)
 			node.Gid = uint32(userns_uid)
 		}
+	}
+	config.SystemProperties = make(map[string]string)
+	for _, sysProp := range context.StringSlice("sysctl") {
+		parts := strings.SplitN(sysProp, "=", 2)
+		if len(parts) != 2 {
+			logrus.Fatalf("invalid system property %s", sysProp)
+		}
+		config.SystemProperties[parts[0]] = parts[1]
 	}
 	for _, rawBind := range context.StringSlice("bind") {
 		mount := &configs.Mount{
@@ -187,6 +197,12 @@ func modify(config *configs.Config, context *cli.Context) {
 		}
 		config.Networks = append(config.Networks, network)
 	}
+	if context.Bool("cgroup") {
+		config.Mounts = append(config.Mounts, &configs.Mount{
+			Destination: "/sys/fs/cgroup",
+			Device:      "cgroup",
+		})
+	}
 }
 
 func getTemplate() *configs.Config {
@@ -234,6 +250,26 @@ func getTemplate() *configs.Config {
 			"/proc/sys", "/proc/sysrq-trigger", "/proc/irq", "/proc/bus",
 		},
 		Mounts: []*configs.Mount{
+			{
+				Source:      "proc",
+				Destination: "/proc",
+				Device:      "proc",
+				Flags:       defaultMountFlags,
+			},
+			{
+				Source:      "tmpfs",
+				Destination: "/dev",
+				Device:      "tmpfs",
+				Flags:       syscall.MS_NOSUID | syscall.MS_STRICTATIME,
+				Data:        "mode=755",
+			},
+			{
+				Source:      "devpts",
+				Destination: "/dev/pts",
+				Device:      "devpts",
+				Flags:       syscall.MS_NOSUID | syscall.MS_NOEXEC,
+				Data:        "newinstance,ptmxmode=0666,mode=0620,gid=5",
+			},
 			{
 				Device:      "tmpfs",
 				Source:      "shm",

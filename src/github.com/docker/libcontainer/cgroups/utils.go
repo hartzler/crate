@@ -1,3 +1,5 @@
+// +build linux
+
 package cgroups
 
 import (
@@ -32,6 +34,21 @@ func FindCgroupMountpoint(subsystem string) (string, error) {
 	}
 
 	return "", NewNotFoundError(subsystem)
+}
+
+func FindCgroupMountpointDir() (string, error) {
+	mounts, err := mount.GetMounts()
+	if err != nil {
+		return "", err
+	}
+
+	for _, mount := range mounts {
+		if mount.Fstype == "cgroup" {
+			return filepath.Dir(mount.Mountpoint), nil
+		}
+	}
+
+	return "", NewNotFoundError("cgroup")
 }
 
 type Mount struct {
