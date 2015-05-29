@@ -6,28 +6,8 @@ import (
 	"os"
 )
 
-type Connector struct {
-	Name        string
-	Proto       string
-	Port        string
-	Cardinatity string
-}
-
-type Connectors struct {
-	In  []*Connector
-	Out []*Connector
-}
-
-type Hook struct {
-	Command string
-	Env     []string
-}
-
 type Dotcrate struct {
-	Name       string
-	Connectors Connectors
-	Hooks      map[string]Hook
-	Cargo      []string
+	Cargo []string
 }
 
 func LoadDot(path string) (*Dotcrate, error) {

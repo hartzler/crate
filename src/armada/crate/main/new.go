@@ -9,9 +9,10 @@ import (
 var newCommand = cli.Command{
 	Name:        "new",
 	Usage:       "creates a container",
-	Description: "args: <crate> <id>",
+	Description: "args: <id>",
 	Flags: []cli.Flag{
 		cli.BoolFlag{Name: "read-only", Usage: "set the container's rootfs as read-only"},
+		cli.StringSliceFlag{Name: "cargo", Value: &cli.StringSlice{}, Usage: "urls of cargo files to unpack in rootfs"},
 		cli.StringSliceFlag{Name: "bind", Value: &cli.StringSlice{}, Usage: "add bind mounts to the container"},
 		cli.StringSliceFlag{Name: "tmpfs", Value: &cli.StringSlice{}, Usage: "add tmpfs mounts to the container"},
 		cli.IntFlag{Name: "cpushares", Usage: "set the cpushares for the container"},
@@ -33,18 +34,15 @@ var newCommand = cli.Command{
 	Action: func(context *cli.Context) {
 
 		args := context.Args()
-		if len(args) != 2 {
-			fatal(fmt.Errorf("expected 2 arguments <crate> <id>"))
-		}
-
-		// .crate file
-		dotcrate, err := crate.LoadDot(args[0])
-		if err != nil {
-			fatal(err)
+		if len(args) != 1 {
+			fatal(fmt.Errorf("expected argument <id>"))
 		}
 
 		// id
-		id := args[1]
+		id := args[0]
+
+		// dotcrate
+		dotcrate := crate.Dotcrate{context.StringSlice("cargo")}
 
 		// libconfig
 		libconfig := getTemplate(id)
@@ -52,7 +50,7 @@ var newCommand = cli.Command{
 		fmt.Println(libconfig)
 
 		crate := fromContext(context)
-		if _, err := crate.Create(id, dotcrate, libconfig); err != nil {
+		if _, err := crate.Create(id, &dotcrate, libconfig); err != nil {
 			fatal(err)
 		}
 	},

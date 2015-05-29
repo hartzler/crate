@@ -17,15 +17,26 @@ For more details of the networking see: [doc/network.md](doc/network.md)
       Author - <matt@armada.io>
 
     COMMANDS:
-       setup	create the network bridge [bridge-name]
-       new      creates a new container
-       run      start a process inside a container
-       destroy	destroy the container
-       pause	pause the container's processes
-       resume	resume the container's processes
-       pids		list the pids of a container
-       status	show the status of a container
-       help, h	Shows a list of commands or help for one command
+       new [id] [subnet] [ip]
+           creates a new container
+       run [process-id] [cmd] [args]
+           start a process inside a container
+       destroy [id]
+           destroy the container
+       pause [id]
+           pause the container's processes
+       resume	[id]
+           resume the container's processes
+       pids	[id]
+           list the pids of a container
+       status	[id]
+           show the status of a container
+       route-add
+           create a route to another container
+       route-del
+           remove a route
+       help
+           shows a list of commands or help for one command
 
     GLOBAL OPTIONS:
        --root "/var/lib/crate/containers"	root directory for containers

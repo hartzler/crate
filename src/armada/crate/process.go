@@ -13,16 +13,7 @@ type RunArgs struct {
 	Cwd  string
 }
 
-func (self *Crate) Run(id, hook string, args RunArgs) error {
-
-	if hook != "" {
-		dotcrate, err := LoadDot(filepath.Join(self.path(id), "dotcrate"))
-		if err != nil {
-			return err
-		}
-		args.Args = append([]string{dotcrate.Hooks[hook].Command}, args.Args...)
-		args.Env = append(dotcrate.Hooks[hook].Env, args.Env...)
-	}
+func (self *Crate) Run(id string, args RunArgs) error {
 
 	conn, err := net.Dial("unix", filepath.Join(self.containersRoot(), id, "rootfs", "crate.socket"))
 	if err != nil {

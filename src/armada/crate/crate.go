@@ -67,7 +67,7 @@ func (self *Crate) Create(id string, dotcrate *Dotcrate, libconfig *configs.Conf
 		return nil, err
 	}
 
-	// drop dotcrate file for later...
+	// drop cargo file for later...
 	dotcrate.Store(filepath.Join(containerDir, "dotcrate"))
 
 	// libcontainer create
