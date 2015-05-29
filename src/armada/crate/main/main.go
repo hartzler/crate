@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 )
 
 func main() {
-	fmt.Println("FUCK:", os.Args)
 	if filepath.Base(os.Args[0]) == crate.CRATE_INIT {
 		runCrateInit()
 	} else {
@@ -38,8 +38,9 @@ func runLibcontainerInit() {
 	if err != nil {
 		fatal(err)
 	}
-	if err := factory.StartInitialization(3); err != nil {
-		fmt.Println("umm...")
+	if err := factory.StartInitialization(); err != nil {
+		fmt.Println("CRATE: libcontainer error...")
+		debug.PrintStack()
 		fatal(err)
 	}
 	panic("unreachable")

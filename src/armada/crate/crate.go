@@ -7,9 +7,10 @@ import (
 	"github.com/docker/libcontainer"
 	"github.com/docker/libcontainer/configs"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
-	"time"
+	"syscall"
 )
 
 const (
@@ -41,7 +42,7 @@ func (self *Crate) containersRoot() string {
 }
 
 func (self *Crate) controlSocket(id string) string {
-	return filepath.Join(self.containersRoot(), id, "rootfs", "crate.socket")
+	return filepath.Join(self.containersRoot(), id, "crate.socket")
 }
 
 func (self *Crate) SetupRoot() error {
@@ -80,19 +81,8 @@ func (self *Crate) Create(id string, cargo []string, libconfig *configs.Config) 
 
 	// start crate-init
 	fmt.Println("PARENT: starting init...")
-	if err := startInit(id, containerDir, container); err != nil {
+	if err := self.startInit(id, containerDir, container); err != nil {
 		return nil, err
-	}
-
-	// wait for control socket
-	socket := self.controlSocket(id)
-	for {
-		if _, err := os.Stat(socket); os.IsNotExist(err) {
-			time.Sleep(1 * time.Second)
-			continue
-		}
-		fmt.Println("PARENT: found socket file...")
-		break
 	}
 
 	return &Container{
@@ -167,7 +157,7 @@ func (self *Crate) setupRootfs(rootfs string, cargo []string) error {
 	}
 	return nil
 }
-func startInit(id, containerDir string, container libcontainer.Container) error {
+func (self *Crate) startInit(id, containerDir string, container libcontainer.Container) error {
 	// copy self to /crate-init in the container rootfs (non-portable hack?)
 	fmt.Println("PARENT: copying crate-init...")
 	exePath, err := os.Readlink("/proc/self/exe")
@@ -178,14 +168,46 @@ func startInit(id, containerDir string, container libcontainer.Container) error 
 		return err
 	}
 
+	// stdout/err
+	stdout, err := os.Create(filepath.Join(containerDir, "init.stdout"))
+	if err != nil {
+		return err
+	}
+	stderr, err := os.Create(filepath.Join(containerDir, "init.stderr"))
+	if err != nil {
+		return err
+	}
+
+	// set permission on listen to 0600...
+	oldmask := syscall.Umask(0177)
+
+	// ctrl socket file to pass to our crate-init
+	socketPath := self.controlSocket(id)
+	if err := os.Remove(socketPath); !os.IsNotExist(err) {
+		return err
+	}
+	socket, err := net.ListenUnix("unix", &net.UnixAddr{socketPath, "unix"})
+	if err != nil {
+		return err
+	}
+	socketFile, err := socket.File()
+	if err != nil {
+		return err
+	}
+
+	// restore
+	syscall.Umask(oldmask)
+
+	// create init process
 	process := &libcontainer.Process{
-		Args:   []string{"/" + CRATE_INIT, id},
-		Env:    StandardEnvironment,
-		User:   "",
-		Cwd:    "/",
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+		Args:       []string{"/" + CRATE_INIT, id},
+		Env:        StandardEnvironment,
+		User:       "",
+		Cwd:        "/",
+		Stdin:      nil,
+		Stdout:     stdout,
+		Stderr:     stderr,
+		ExtraFiles: []*os.File{socketFile},
 	}
 	if err := container.Start(process); err != nil {
 		return err

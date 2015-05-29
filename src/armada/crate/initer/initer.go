@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"syscall"
 )
 
 var SocketFile = "crate.socket"
@@ -20,19 +19,13 @@ func CrateInit() {
 	fmt.Println("CRATE-INIT: starting...")
 	os.Remove("/" + SocketFile)
 
-	// set permission on listen to 0600...
-	oldmask := syscall.Umask(0177)
-
-	fmt.Println("CRATE-INIT: opening socket:", "/"+SocketFile)
-	l, err := net.Listen("unix", "/"+SocketFile)
+	fmt.Println("CRATE-INIT: opening passed socket...")
+	l, err := net.FileListener(os.NewFile(3, "listener"))
 	if err != nil {
 		fmt.Println("CRATE-INIT: err:", err)
 		panic(err)
 	}
 	defer l.Close()
-
-	// restore
-	syscall.Umask(oldmask)
 
 	fmt.Println("CRATE-INIT: ready...")
 	for {
