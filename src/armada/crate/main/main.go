@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+	fmt.Println("FUCK:", os.Args)
 	if filepath.Base(os.Args[0]) == crate.CRATE_INIT {
 		runCrateInit()
 	} else {

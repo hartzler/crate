@@ -3,7 +3,6 @@ package crate
 import (
 	"encoding/json"
 	"net"
-	"path/filepath"
 )
 
 type RunArgs struct {
@@ -15,7 +14,7 @@ type RunArgs struct {
 
 func (self *Crate) Run(id string, args RunArgs) error {
 
-	conn, err := net.Dial("unix", filepath.Join(self.containersRoot(), id, "rootfs", "crate.socket"))
+	conn, err := net.Dial("unix", self.controlSocket(id))
 	if err != nil {
 		return err
 	}

@@ -18,7 +18,6 @@ func modify(config *configs.Config, context *cli.Context) {
 	id := context.String("id")
 	rootfs := context.String("rootfs")
 
-	//config.ParentDeathSignal = context.Int("parent-death-signal")
 	config.Readonlyfs = context.Bool("read-only")
 
 	config.Cgroups = &configs.Cgroup{
@@ -119,7 +118,8 @@ func modify(config *configs.Config, context *cli.Context) {
 
 func getTemplate(id string) *configs.Config {
 	return &configs.Config{
-		ParentDeathSignal: int(syscall.SIGKILL),
+		ParentDeathSignal: int(syscall.SIGUSR1),
+		//ParentDeathSignal: int(syscall.SIGKILL),
 		Capabilities: []string{
 			"CHOWN",
 			"DAC_OVERRIDE",

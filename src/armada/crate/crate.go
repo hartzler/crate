@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -39,6 +40,10 @@ func (self *Crate) containersRoot() string {
 	return filepath.Join(self.Root, "containers")
 }
 
+func (self *Crate) controlSocket(id string) string {
+	return filepath.Join(self.containersRoot(), id, "rootfs", "crate.socket")
+}
+
 func (self *Crate) SetupRoot() error {
 	containersDir := self.containersRoot()
 	if _, err := os.Stat(containersDir); os.IsNotExist(err) {
@@ -56,19 +61,16 @@ func (self *Crate) path(id string) string {
 	return filepath.Join(self.containersRoot(), id)
 }
 
-// TODO switch to our own config which includes options, a Dotcrate, and a libcontainer configs.Config
-func (self *Crate) Create(id string, dotcrate *Dotcrate, libconfig *configs.Config) (*Container, error) {
+// TODO switch to our own config which includes options, cargo, and a libcontainer configs.Config
+func (self *Crate) Create(id string, cargo []string, libconfig *configs.Config) (*Container, error) {
 
 	// setup our container/rootfs dir
 	containerDir := self.path(id)
 	rootfs := filepath.Join(containerDir, "rootfs")
 	libconfig.Rootfs = rootfs
-	if err := self.setupRootfs(rootfs, dotcrate); err != nil {
+	if err := self.setupRootfs(rootfs, cargo); err != nil {
 		return nil, err
 	}
-
-	// drop cargo file for later...
-	dotcrate.Store(filepath.Join(containerDir, "dotcrate"))
 
 	// libcontainer create
 	container, err := setupLibcontainer(id, containerDir, libconfig)
@@ -82,11 +84,22 @@ func (self *Crate) Create(id string, dotcrate *Dotcrate, libconfig *configs.Conf
 		return nil, err
 	}
 
+	// wait for control socket
+	socket := self.controlSocket(id)
+	for {
+		if _, err := os.Stat(socket); os.IsNotExist(err) {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		fmt.Println("PARENT: found socket file...")
+		break
+	}
+
 	return &Container{
 		id:        id,
 		crate:     self,
 		container: container,
-	}, err
+	}, nil
 
 }
 
@@ -128,13 +141,13 @@ func setupLibcontainer(id, containerDir string, libconfig *configs.Config) (libc
 	return container, nil
 }
 
-func (self *Crate) setupRootfs(rootfs string, dotcrate *Dotcrate) error {
+func (self *Crate) setupRootfs(rootfs string, cargo []string) error {
 	if err := os.MkdirAll(rootfs, 0700); err != nil {
 		return err
 	}
 
 	// extract cargo!
-	for _, path := range dotcrate.Cargo {
+	for _, path := range cargo {
 		// make sure we got it!
 		fmt.Println("Fetching: ", path)
 		hash, err := self.Cargo.fetch(path)

@@ -22,8 +22,11 @@ func CrateInit() {
 
 	// set permission on listen to 0600...
 	oldmask := syscall.Umask(0177)
+
+	fmt.Println("CRATE-INIT: opening socket:", "/"+SocketFile)
 	l, err := net.Listen("unix", "/"+SocketFile)
 	if err != nil {
+		fmt.Println("CRATE-INIT: err:", err)
 		panic(err)
 	}
 	defer l.Close()
@@ -45,6 +48,7 @@ func CrateInit() {
 			}
 		}()
 	}
+	fmt.Println("CRATE-INIT: exiting...")
 }
 
 func handle(conn net.Conn) error {

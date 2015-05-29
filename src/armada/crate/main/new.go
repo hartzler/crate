@@ -1,7 +1,6 @@
 package main
 
 import (
-	"armada/crate"
 	"fmt"
 	"github.com/codegangsta/cli"
 )
@@ -20,9 +19,6 @@ var newCommand = cli.Command{
 		cli.IntFlag{Name: "memory-swap", Usage: "set the memory swap limit for the container"},
 		cli.StringFlag{Name: "cpuset-cpus", Usage: "set the cpuset cpus"},
 		cli.StringFlag{Name: "cpuset-mems", Usage: "set the cpuset mems"},
-		cli.StringFlag{Name: "apparmor-profile", Usage: "set the apparmor profile"},
-		cli.StringFlag{Name: "process-label", Usage: "set the process label"},
-		cli.StringFlag{Name: "mount-label", Usage: "set the mount label"},
 		cli.IntFlag{Name: "userns-root-uid", Usage: "set the user namespace root uid"},
 		cli.StringFlag{Name: "hostname", Value: "crate", Usage: "hostname value for the container"},
 		cli.StringFlag{Name: "bridge", Value: "armada0", Usage: "name of bridge interface"},
@@ -41,16 +37,13 @@ var newCommand = cli.Command{
 		// id
 		id := args[0]
 
-		// dotcrate
-		dotcrate := crate.Dotcrate{context.StringSlice("cargo")}
-
 		// libconfig
 		libconfig := getTemplate(id)
 		modify(libconfig, context)
 		fmt.Println(libconfig)
 
 		crate := fromContext(context)
-		if _, err := crate.Create(id, &dotcrate, libconfig); err != nil {
+		if _, err := crate.Create(id, []string(context.StringSlice("cargo")), libconfig); err != nil {
 			fatal(err)
 		}
 	},

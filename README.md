@@ -17,23 +17,23 @@ For more details of the networking see: [doc/network.md](doc/network.md)
       Author - <matt@armada.io>
 
     COMMANDS:
-       new [id] [subnet] [ip]
+       new [options...] id address/cdir
            creates a new container
-       run [process-id] [cmd] [args]
+       run [options...] id process-id cmd args
            start a process inside a container
-       destroy [id]
+       destroy [options...] id
            destroy the container
-       pause [id]
+       pause id
            pause the container's processes
-       resume	[id]
+       resume	id
            resume the container's processes
-       pids	[id]
+       pids	id
            list the pids of a container
-       status	[id]
+       status	id
            show the status of a container
-       route-add
+       route-add id host address
            create a route to another container
-       route-del
+       route-del id host address
            remove a route
        help
            shows a list of commands or help for one command
