@@ -16,6 +16,7 @@ var runCommand = cli.Command{
 	Flags: []cli.Flag{
 		cli.StringFlag{Name: "user,u", Value: "root", Usage: "set the user, uid, and/or gid for the process"},
 		cli.StringFlag{Name: "cwd", Value: "", Usage: "set the current working dir"},
+		cli.StringFlag{Name: "pid", Value: "", Usage: "a user defined pid to track this process"},
 		cli.StringSliceFlag{Name: "env", Value: &cliEnv, Usage: "set environment variables for the process"},
 	},
 }
@@ -27,7 +28,8 @@ func runAction(context *cli.Context) {
 	}
 	id := args[0]
 
-	err := fromContext(context).Run(id, crate.RunArgs{
+	err := fromContext(context).Run(id, crate.Process{
+		Id:   context.String("pid"),
 		Args: args[1:],
 		Env:  context.StringSlice("env"),
 		User: context.String("user"),

@@ -43,17 +43,17 @@ func Start() {
 }
 
 func handle(conn *net.UnixConn) error {
-	var args crate.RunArgs
-	if err := json.NewDecoder(conn).Decode(&args); err != nil {
+	var process crate.Process
+	if err := json.NewDecoder(conn).Decode(&process); err != nil {
 		return err
 	}
-	fmt.Printf("PID1: DECODED: %s\n", args)
+	fmt.Printf("PID1: DECODED: %s\n", process)
 
-	cmd := exec.Command(args.Args[0], args.Args[1:]...)
-	cmd.Env = args.Env
+	cmd := exec.Command(process.Args[0], process.Args[1:]...)
+	cmd.Env = process.Env
 
-	// check if stdin/out/err are being sent
-	if args.Stdio {
+	// read stdio fd's from socket
+	if process.Shell {
 		files, err := fd.Receive(conn, 3, []string{"/dev/stdin", "/dev/stdout", "/dev/stdin"})
 		if err != nil {
 			return err
@@ -62,9 +62,12 @@ func handle(conn *net.UnixConn) error {
 		cmd.Stdout = files[1]
 		cmd.Stderr = files[2]
 	} else {
-		// just use our own outputs
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		files, err := fd.Receive(conn, 2, []string{"/dev/stdout", "/dev/stdin"})
+		if err != nil {
+			return err
+		}
+		cmd.Stdout = files[0]
+		cmd.Stderr = files[1]
 	}
 
 	return cmd.Run()
