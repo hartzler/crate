@@ -2,7 +2,7 @@ package main
 
 import (
 	"armada/crate"
-	"armada/crate/initer"
+	"armada/crate/pid1"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -15,7 +15,7 @@ import (
 
 func main() {
 	if filepath.Base(os.Args[0]) == crate.CRATE_INIT {
-		runCrateInit()
+		startPid1()
 	} else {
 		if len(os.Args) > 1 && os.Args[1] == "init" {
 			runLibcontainerInit()
@@ -26,8 +26,8 @@ func main() {
 }
 
 // the container PID 1
-func runCrateInit() {
-	initer.CrateInit()
+func startPid1() {
+	pid1.Start()
 }
 
 // bootstrap libcontainer start process
@@ -67,6 +67,7 @@ func runCrate() {
 		unpauseCommand,
 		pidsCommand,
 		statusCommand,
+		shellCommand,
 	}
 	app.Before = func(context *cli.Context) error {
 		if context.GlobalBool("debug") {

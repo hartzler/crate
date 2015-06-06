@@ -169,11 +169,11 @@ func (self *Crate) startInit(id, containerDir string, container libcontainer.Con
 	}
 
 	// stdout/err
-	stdout, err := os.Create(filepath.Join(containerDir, "init.stdout"))
+	stdout, err := os.Create(filepath.Join(containerDir, "stdout"))
 	if err != nil {
 		return err
 	}
-	stderr, err := os.Create(filepath.Join(containerDir, "init.stderr"))
+	stderr, err := os.Create(filepath.Join(containerDir, "stderr"))
 	if err != nil {
 		return err
 	}
