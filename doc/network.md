@@ -25,6 +25,7 @@ ip addr add 10.4.0.1/8 dev aramda0
 ip link set armada0 up
 
 # setup tunnel to from node1 -> node2
+
 ip tunnel add ${name} mode ipip local ${local} remote ${remote} ttl 64
 ip addr add 10.4.0.${nodeNum}/16 dev ${name}
 ip link set ${name} up
@@ -56,8 +57,8 @@ ip link set veth1.mysql.master netns mysql.master
 ip netns exec mysql.master ip link set veth1.mysql.master name eth0
 ip netns exec mysql.master ip set lo up
 ip netns exec mysql.master ip addr add 10.4.1.1/16 dev eth0
-ip netns exec mysql.master ip eth0 up
-ip netns exec mysql.master ip route add default via 10.4.0.1
+ip netns exec mysql.master ip set eth0 up
+ip netns exec mysql.master ip route add default via 10.4.0.255
 
 
 # example!

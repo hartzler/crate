@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"syscall"
 )
 
@@ -62,6 +63,24 @@ func (self *Crate) path(id string) string {
 	return filepath.Join(self.containersRoot(), id)
 }
 
+func (self *Crate) pidfile(id string) string {
+	return filepath.Join(self.path(id), PID_FILE)
+}
+
+func (self *Crate) pid(id string) (int, error) {
+	file, err := os.Open(self.pidfile(id))
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+	pid, err := ioutil.ReadAll(file)
+	if err != nil {
+		return 0, err
+	}
+	fmt.Println("pid: ", string(pid))
+	return strconv.Atoi(string(pid))
+}
+
 // TODO switch to our own config which includes options, cargo, and a libcontainer configs.Config
 func (self *Crate) Create(id string, cargo []string, libconfig *configs.Config) (*Container, error) {
 
@@ -81,7 +100,7 @@ func (self *Crate) Create(id string, cargo []string, libconfig *configs.Config) 
 
 	// start crate-init
 	fmt.Println("PARENT: starting init...")
-	if err := self.startInit(id, containerDir, container); err != nil {
+	if _, err := self.startInit(id, containerDir, container); err != nil {
 		return nil, err
 	}
 
@@ -157,25 +176,25 @@ func (self *Crate) setupRootfs(rootfs string, cargo []string) error {
 	}
 	return nil
 }
-func (self *Crate) startInit(id, containerDir string, container libcontainer.Container) error {
+func (self *Crate) startInit(id, containerDir string, container libcontainer.Container) (int, error) {
 	// copy self to /crate-init in the container rootfs (non-portable hack?)
 	fmt.Println("PARENT: copying crate-init...")
 	exePath, err := os.Readlink("/proc/self/exe")
 	if err != nil {
-		return err
+		return -1, err
 	}
 	if _, err = copyFile(exePath, filepath.Join(containerDir, "rootfs", CRATE_INIT)); err != nil {
-		return err
+		return -1, err
 	}
 
 	// stdout/err
 	stdout, err := os.Create(filepath.Join(containerDir, "stdout"))
 	if err != nil {
-		return err
+		return -1, err
 	}
 	stderr, err := os.Create(filepath.Join(containerDir, "stderr"))
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	// set permission on listen to 0600...
@@ -184,15 +203,15 @@ func (self *Crate) startInit(id, containerDir string, container libcontainer.Con
 	// ctrl socket file to pass to our crate-init
 	socketPath := self.controlSocket(id)
 	if err := os.Remove(socketPath); !os.IsNotExist(err) {
-		return err
+		return -1, err
 	}
 	socket, err := net.ListenUnix("unix", &net.UnixAddr{socketPath, "unix"})
 	if err != nil {
-		return err
+		return -1, err
 	}
 	socketFile, err := socket.File()
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	// restore
@@ -210,7 +229,7 @@ func (self *Crate) startInit(id, containerDir string, container libcontainer.Con
 		ExtraFiles: []*os.File{socketFile},
 	}
 	if err := container.Start(process); err != nil {
-		return err
+		return -1, err
 	}
 
 	// drop pid file
@@ -218,9 +237,12 @@ func (self *Crate) startInit(id, containerDir string, container libcontainer.Con
 	pid, err := process.Pid()
 	fmt.Println("PARENT: writing pid file...", pidfile, pid)
 	if err != nil {
-		return err
+		return -1, err
 	}
-	return ioutil.WriteFile(pidfile, []byte(fmt.Sprintf("%d", pid)), 0600)
+	if err := ioutil.WriteFile(pidfile, []byte(fmt.Sprintf("%d", pid)), 0600); err != nil {
+		return -1, err
+	}
+	return pid, err
 }
 
 func (self *Crate) Load(id string) (*Container, error) {

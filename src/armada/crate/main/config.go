@@ -97,6 +97,7 @@ func modify(config *configs.Config, context *cli.Context) {
 		//{Type: configs.NEWNET, Path: fmt.Sprintf("/var/run/netns/%s", id)},
 	})
 	if bridge := context.String("bridge"); bridge != "" {
+		// veth pair connected to bridge
 		hostName, err := utils.GenerateRandomName("armada", 7)
 		if err != nil {
 			logrus.Fatal(err)
@@ -113,6 +114,15 @@ func modify(config *configs.Config, context *cli.Context) {
 		}
 		config.Networks = append(config.Networks, network)
 		fmt.Println(config.Networks[0])
+	} else {
+		// localhost loopback only!
+		config.Networks = []*configs.Network{
+			{
+				Type:    "loopback",
+				Address: "127.0.0.1/0",
+				Gateway: "localhost",
+			},
+		}
 	}
 }
 

@@ -21,7 +21,7 @@ var newCommand = cli.Command{
 		cli.StringFlag{Name: "cpuset-mems", Usage: "set the cpuset mems"},
 		cli.IntFlag{Name: "userns-root-uid", Usage: "set the user namespace root uid"},
 		cli.StringFlag{Name: "hostname", Value: "crate", Usage: "hostname value for the container"},
-		cli.StringFlag{Name: "bridge", Value: "armada0", Usage: "name of bridge interface"},
+		cli.StringFlag{Name: "bridge", Usage: "name of bridge interface"},
 		cli.StringFlag{Name: "address", Usage: "ip/cidr address"},
 		cli.StringFlag{Name: "gateway", Value: "10.4.0.255", Usage: "container gateway address"},
 		cli.IntFlag{Name: "mtu", Value: 1500, Usage: "veth mtu"},
