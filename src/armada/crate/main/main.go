@@ -68,6 +68,7 @@ func runCrate() {
 		pidsCommand,
 		statusCommand,
 		shellCommand,
+		netnsCommand,
 	}
 	app.Before = func(context *cli.Context) error {
 		if context.GlobalBool("debug") {

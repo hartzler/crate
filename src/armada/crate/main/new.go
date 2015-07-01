@@ -43,8 +43,15 @@ var newCommand = cli.Command{
 		fmt.Println(libconfig)
 
 		crate := fromContext(context)
-		if _, err := crate.Create(id, []string(context.StringSlice("cargo")), libconfig); err != nil {
+		container, err := crate.Create(id, []string(context.StringSlice("cargo")), libconfig)
+		if err != nil {
 			fatal(err)
 		}
+		pids, err := container.Processes()
+		if err != nil {
+			fatal(err)
+		}
+		// return PID1 host pid
+		fmt.Println(pids[0])
 	},
 }
