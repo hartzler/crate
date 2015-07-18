@@ -18,6 +18,7 @@ var runCommand = cli.Command{
 		cli.StringFlag{Name: "cwd", Value: "", Usage: "set the current working dir"},
 		cli.StringFlag{Name: "pid", Value: "", Usage: "a user defined pid to track this process"},
 		cli.StringSliceFlag{Name: "env", Value: &cliEnv, Usage: "set environment variables for the process"},
+		cli.StringFlag{Name: "restart", Value: "never", Usage: "restart policy if process exits: never | on-failure | always"},
 	},
 }
 
@@ -28,12 +29,25 @@ func runAction(context *cli.Context) {
 	}
 	id := args[0]
 
+	var restartPolicy int
+	switch context.String("restart") {
+	case "never":
+		restartPolicy = crate.RestartPolicyNever
+	case "on-failure":
+		restartPolicy = crate.RestartPolicyOnFailure
+	case "always":
+		restartPolicy = crate.RestartPolicyAlways
+	default:
+		fatal(fmt.Errorf("--restart must be one of never | on-failure | always"))
+	}
+
 	err := fromContext(context).Run(id, crate.Process{
-		Id:   context.String("pid"),
-		Args: args[1:],
-		Env:  context.StringSlice("env"),
-		User: context.String("user"),
-		Cwd:  context.String("cwd"),
+		Id:            context.String("pid"),
+		Args:          args[1:],
+		Env:           context.StringSlice("env"),
+		User:          context.String("user"),
+		Cwd:           context.String("cwd"),
+		RestartPolicy: restartPolicy,
 	})
 	if err != nil {
 		fatal(err)

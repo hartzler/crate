@@ -9,13 +9,20 @@ import (
 	"path/filepath"
 )
 
+const (
+	RestartPolicyNever = iota
+	RestartPolicyAlways
+	RestartPolicyOnFailure
+)
+
 type Process struct {
-	Id    string
-	Args  []string
-	Env   []string
-	User  string
-	Cwd   string
-	Shell bool
+	Id            string
+	Args          []string
+	Env           []string
+	User          string
+	Cwd           string
+	Shell         bool
+	RestartPolicy int
 }
 
 func (self *Crate) Run(id string, process Process) error {
