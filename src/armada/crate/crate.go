@@ -1,7 +1,6 @@
 package crate
 
 import (
-	"armada/pkg/tar"
 	"encoding/json"
 	"fmt"
 	"github.com/docker/libcontainer"
@@ -9,8 +8,10 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -27,14 +28,12 @@ var StandardEnvironment = []string{
 }
 
 type Crate struct {
-	Root  string
-	Cargo *Cargo
+	Root string
 }
 
 func New(root string) *Crate {
 	return &Crate{
-		Root:  root,
-		Cargo: NewCargo(filepath.Join(root, "cargo")),
+		Root: root,
 	}
 }
 
@@ -63,6 +62,14 @@ func (self *Crate) path(id string) string {
 	return filepath.Join(self.containersRoot(), id)
 }
 
+func (self *Crate) mounts(id string) string {
+	return filepath.Join(self.path(id), "mounts")
+}
+
+func (self *Crate) rootfs(id string) string {
+	return filepath.Join(self.path(id), "rootfs")
+}
+
 func (self *Crate) pidfile(id string) string {
 	return filepath.Join(self.path(id), PID_FILE)
 }
@@ -86,9 +93,9 @@ func (self *Crate) Create(id string, cargo []string, libconfig *configs.Config) 
 
 	// setup our container/rootfs dir
 	containerDir := self.path(id)
-	rootfs := filepath.Join(containerDir, "rootfs")
+	rootfs := self.rootfs(id)
 	libconfig.Rootfs = rootfs
-	if err := self.setupRootfs(rootfs, cargo); err != nil {
+	if err := self.setupRootfs(id, rootfs, cargo); err != nil {
 		return nil, err
 	}
 
@@ -150,29 +157,45 @@ func setupLibcontainer(id, containerDir string, libconfig *configs.Config) (libc
 	return container, nil
 }
 
-func (self *Crate) setupRootfs(rootfs string, cargo []string) error {
+// TODO: cleanup all mounts/dirs on error
+func (self *Crate) setupRootfs(id, rootfs string, cargo []string) error {
+	// setup merge path for final rootfs
 	if err := os.MkdirAll(rootfs, 0700); err != nil {
 		return err
 	}
 
-	// extract cargo!
-	for _, path := range cargo {
-		// make sure we got it!
-		fmt.Println("Fetching: ", path)
-		hash, err := self.Cargo.fetch(path)
-		if err != nil {
-			return err
-		}
-		reader, err := self.Cargo.load(hash)
-		if err != nil {
-			return err
-		}
-		defer reader.Close()
+	// setup cargo mounts dir
+	mountsDir := self.mounts(id)
+	fmt.Println("creating mounts dir: ", mountsDir)
+	if err := os.MkdirAll(mountsDir, 0700); err != nil {
+		return err
+	}
 
-		fmt.Println("Extracting: ", hash)
-		if err = tar.Extract(reader, rootfs); err != nil {
-			return err
-		}
+	// create work dir
+	workDir := filepath.Join(mountsDir, "work")
+	if err := os.MkdirAll(workDir, 0700); err != nil {
+		return err
+	}
+
+	// create write dir
+	writeDir := filepath.Join(mountsDir, "content")
+	if err := os.MkdirAll(writeDir, 0700); err != nil {
+		return err
+	}
+
+	// get list of cargo mounts
+	lowerDirs := []string{}
+	for _, path := range cargo {
+		lowerDirs = append(lowerDirs, filepath.Join(self.Root, "cargo", path))
+	}
+
+	// mount overlay
+	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(lowerDirs, ":"), writeDir, workDir)
+	args := []string{"-t", "overlay", "-o", opts, "overlay", rootfs}
+	fmt.Println("mounting merged rootfs: mount", strings.Join(args, " "))
+	if out, err := exec.Command("mount", args...).CombinedOutput(); err != nil {
+		fmt.Println(string(out))
+		return err
 	}
 	return nil
 }
@@ -263,6 +286,11 @@ func (self *Crate) Load(id string) (*Container, error) {
 }
 
 func (self *Crate) Destroy(id string) error {
+	// unmount rootfs
+	if out, err := exec.Command("umount", self.rootfs(id)).CombinedOutput(); err != nil {
+		fmt.Println("Error unmounting rootfs: ", string(out), err)
+		return err
+	}
 	c, err := self.Load(id)
 	if err != nil {
 		return err

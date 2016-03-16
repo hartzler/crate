@@ -69,6 +69,7 @@ func runCrate() {
 		statusCommand,
 		shellCommand,
 		netnsCommand,
+		// agentCommand,
 	}
 	app.Before = func(context *cli.Context) error {
 		if context.GlobalBool("debug") {

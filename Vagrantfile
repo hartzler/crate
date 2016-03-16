@@ -5,7 +5,8 @@
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  config.vm.box = "ubuntu/trusty64"
+  config.vm.box = "ubuntu/wily64"
+  #config.vm.box = "larryli/wily64"
   config.vm.provision :shell, path: 'script/provision.sh'
   config.vm.provision :shell, path: 'script/mount-cgroups.sh'
   config.vm.provider "virtualbox" do |v|
