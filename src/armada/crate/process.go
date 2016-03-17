@@ -39,7 +39,9 @@ func (self *Crate) Run(id string, process Process) error {
 
 	// send our fd's
 	if process.Shell {
-		return fd.Send(conn.(*net.UnixConn), os.Stdin, os.Stdout, os.Stderr)
+		if err := fd.Send(conn.(*net.UnixConn), os.Stdin, os.Stdout, os.Stderr); err != nil {
+			return err
+		}
 	} else {
 		// stdout/err
 		stdout, err := os.Create(filepath.Join(self.path(id), process.Id+".stdout"))
@@ -50,8 +52,14 @@ func (self *Crate) Run(id string, process Process) error {
 		if err != nil {
 			return err
 		}
-		return fd.Send(conn.(*net.UnixConn), stdout, stderr)
+		if err := fd.Send(conn.(*net.UnixConn), stdout, stderr); err != nil {
+			return err
+		}
 	}
+	// read response
+	bytes := make([]byte, 1024)
+	_, err = conn.Read(bytes)
+	return err
 }
 
 func (self *Crate) Shell(id string) error {
