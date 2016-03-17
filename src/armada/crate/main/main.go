@@ -103,7 +103,7 @@ func fatal(err error) {
 		lerr.Detail(os.Stderr)
 		os.Exit(1)
 	}
-	fmt.Fprintln(os.Stderr, err)
+	fmt.Fprintln(os.Stderr, "ERROR:", err)
 	os.Exit(1)
 }
 

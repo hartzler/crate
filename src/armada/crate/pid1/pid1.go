@@ -35,7 +35,6 @@ func Start() {
 			continue // try again...
 		}
 		go func() {
-			defer conn.Close()
 			if err := handle(conn.(*net.UnixConn)); err != nil {
 				fatal(err)
 			}
@@ -46,6 +45,7 @@ func Start() {
 }
 
 func handle(conn *net.UnixConn) error {
+	defer conn.Close()
 	var process crate.Process
 	if err := json.NewDecoder(conn).Decode(&process); err != nil {
 		return err
@@ -69,6 +69,8 @@ func handle(conn *net.UnixConn) error {
 		}
 		stdout = files[0]
 		stderr = files[1]
+		fmt.Println("[crate-init] closing connection.")
+		conn.Close()
 	}
 
 	exp := time.Millisecond
