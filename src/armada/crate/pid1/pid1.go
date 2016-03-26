@@ -6,14 +6,37 @@ import (
 	"armada/crate"
 	"armada/pkg/fd"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"sync"
+	"syscall"
 	"time"
 )
 
 const MAX_SLEEP = 2 * time.Second
+
+type pinfo struct {
+	process crate.Process
+	pid     int
+}
+
+var processMap = make(map[string]*pinfo)
+var processMapLock sync.RWMutex
+
+func setProcessMap(inf *pinfo) {
+	processMapLock.Lock()
+	processMap[inf.process.Id] = inf
+	processMapLock.Unlock()
+}
+
+func getProcessMap(id string) *pinfo {
+	processMapLock.RLock()
+	defer processMapLock.RUnlock()
+	return processMap[id]
+}
 
 func Start() {
 
@@ -46,32 +69,41 @@ func Start() {
 
 func handle(conn *net.UnixConn) error {
 	defer conn.Close()
-	var process crate.Process
-	if err := json.NewDecoder(conn).Decode(&process); err != nil {
+	var cmd crate.ProcessCmd
+	if err := json.NewDecoder(conn).Decode(&cmd); err != nil {
 		return err
 	}
-	fmt.Println("[crate-init] DECODED:", process)
+	fmt.Println("[crate-init] DECODED:", cmd)
 
+	// handle type of command
+	switch cmd.Type {
+	case "run":
+		return run(conn, cmd.Process)
+	case "shell":
+		return shell(conn, cmd.Process)
+	case "stat":
+		return stat(conn, cmd.Process.Id)
+	case "stop":
+		return stop(conn, cmd.Process.Id)
+	case "kill":
+		return kill(conn, cmd.Process.Id)
+	}
+	// unknown
+	return errors.New("Unknown process command: " + cmd.Type)
+}
+
+// run process
+func run(conn *net.UnixConn, process crate.Process) error {
 	// read stdio fd's from socket
 	var stdin, stdout, stderr *os.File
-	if process.Shell {
-		files, err := fd.Receive(conn, 3, []string{"/dev/stdin", "/dev/stdout", "/dev/stdin"})
-		if err != nil {
-			return fmt.Errorf("Error reading 3 fd's from socket: %s", err)
-		}
-		stdin = files[0]
-		stdout = files[1]
-		stderr = files[2]
-	} else {
-		files, err := fd.Receive(conn, 2, []string{"/dev/stdout", "/dev/stdin"})
-		if err != nil {
-			return fmt.Errorf("Error reading 2 fd's from socket: %s", err)
-		}
-		stdout = files[0]
-		stderr = files[1]
-		fmt.Println("[crate-init] closing connection.")
-		conn.Close()
+	files, err := fd.Receive(conn, 2, []string{"/dev/stdout", "/dev/stdin"})
+	if err != nil {
+		return fmt.Errorf("[crate-init] Error reading 2 fd's from socket: %s", err)
 	}
+	stdout = files[0]
+	stderr = files[1]
+	fmt.Println("[crate-init] closing connection.")
+	conn.Close()
 
 	exp := time.Millisecond
 	for {
@@ -80,7 +112,14 @@ func handle(conn *net.UnixConn) error {
 		cmd.Stdin = stdin
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
-		err := cmd.Run()
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		setProcessMap(&pinfo{
+			process: process,
+			pid:     cmd.Process.Pid,
+		})
+		err := cmd.Wait()
 		switch process.RestartPolicy {
 		case crate.RestartPolicyNever:
 			if err != nil {
@@ -107,6 +146,70 @@ func handle(conn *net.UnixConn) error {
 		time.Sleep(exp)
 	}
 	panic("UNREACHABLE CODE!")
+	return nil
+}
+
+// use parent passed std in/out/err and don't close conn until cmd is done
+func shell(conn *net.UnixConn, process crate.Process) error {
+	defer conn.Close()
+	files, err := fd.Receive(conn, 3, []string{"/dev/stdin", "/dev/stdout", "/dev/stdin"})
+	if err != nil {
+		return fmt.Errorf("[crate-init] Error reading 3 fd's from socket: %s", err)
+	}
+	cmd := exec.Command(process.Args[0], process.Args[1:]...)
+	cmd.Env = process.Env
+	cmd.Stdin = files[0]
+	cmd.Stdout = files[1]
+	cmd.Stderr = files[2]
+	return cmd.Run()
+}
+
+// query process state
+// if no error, its running, else see error
+func stat(conn *net.UnixConn, id string) error {
+	pinf := processMap[id]
+	if pinf == nil {
+		// unknown
+		return errors.New("Invalid id")
+	}
+	proc, err := os.FindProcess(pinf.pid)
+	if err != nil {
+		return err
+	}
+	return proc.Signal(syscall.Signal(0))
+}
+
+// stop process (send SIGINT)
+func stop(conn *net.UnixConn, id string) error {
+	pinf := processMap[id]
+	if pinf == nil {
+		// unknown
+		return errors.New("Invalid id")
+	}
+	proc, err := os.FindProcess(pinf.pid)
+	if err != nil {
+		return err
+	}
+	if err := proc.Signal(os.Interrupt); err != nil {
+		return err
+	}
+	return nil
+}
+
+// kill process
+func kill(conn *net.UnixConn, id string) error {
+	pinf := processMap[id]
+	if pinf == nil {
+		// unknown
+		return errors.New("Invalid id")
+	}
+	proc, err := os.FindProcess(pinf.pid)
+	if err != nil {
+		return err
+	}
+	if err := proc.Kill(); err != nil {
+
+	}
 	return nil
 }
 

@@ -84,7 +84,7 @@ func (self *Crate) pid(id string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	fmt.Println("pid: ", string(pid))
+	fmt.Println("[crate] pid: ", string(pid))
 	return strconv.Atoi(string(pid))
 }
 
@@ -106,7 +106,7 @@ func (self *Crate) Create(id string, cargo []string, libconfig *configs.Config) 
 	}
 
 	// start crate-init
-	fmt.Println("PARENT: starting init...")
+	fmt.Println("[crate] starting init...")
 	if _, err := self.startInit(id, containerDir, container); err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (self *Crate) setupRootfs(id, rootfs string, cargo []string) error {
 
 	// setup cargo mounts dir
 	mountsDir := self.mounts(id)
-	fmt.Println("creating mounts dir: ", mountsDir)
+	fmt.Println("[crate] creating mounts dir: ", mountsDir)
 	if err := os.MkdirAll(mountsDir, 0700); err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (self *Crate) setupRootfs(id, rootfs string, cargo []string) error {
 	// mount overlay
 	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(lowerDirs, ":"), writeDir, workDir)
 	args := []string{"-t", "overlay", "-o", opts, "overlay", rootfs}
-	fmt.Println("mounting merged rootfs: mount", strings.Join(args, " "))
+	fmt.Println("[crate] mounting merged rootfs: mount", strings.Join(args, " "))
 	if out, err := exec.Command("mount", args...).CombinedOutput(); err != nil {
 		fmt.Println(string(out))
 		return err
@@ -201,43 +201,49 @@ func (self *Crate) setupRootfs(id, rootfs string, cargo []string) error {
 }
 func (self *Crate) startInit(id, containerDir string, container libcontainer.Container) (int, error) {
 	// copy self to /crate-init in the container rootfs (non-portable hack?)
-	fmt.Println("PARENT: copying crate-init...")
+	fmt.Println("[crate] DEBUG copying crate-init...")
 	exePath, err := os.Readlink("/proc/self/exe")
 	if err != nil {
 		return -1, err
 	}
 	if _, err = copyFile(exePath, filepath.Join(containerDir, "rootfs", CRATE_INIT)); err != nil {
-		return -1, err
+		return -2, err
 	}
 
 	// stdout/err
+	fmt.Println("[crate] DEBUG creating stdio files...")
 	stdout, err := os.Create(filepath.Join(containerDir, "stdout"))
 	if err != nil {
-		return -1, err
+		return -3, err
 	}
 	stderr, err := os.Create(filepath.Join(containerDir, "stderr"))
 	if err != nil {
-		return -1, err
+		return -4, err
 	}
 
 	// set permission on listen to 0600...
+	fmt.Println("[crate] DEBUG syscall umask 0177...")
 	oldmask := syscall.Umask(0177)
 
 	// ctrl socket file to pass to our crate-init
+	fmt.Println("[crate] DEBUG opening control socket...")
 	socketPath := self.controlSocket(id)
 	if err := os.Remove(socketPath); !os.IsNotExist(err) {
 		return -1, err
 	}
+	fmt.Println("[crate] DEBUG open control socket listener...")
 	socket, err := net.ListenUnix("unix", &net.UnixAddr{socketPath, "unix"})
 	if err != nil {
 		return -1, err
 	}
+	fmt.Println("[crate] DEBUG get fd to listener...")
 	socketFile, err := socket.File()
 	if err != nil {
 		return -1, err
 	}
 
 	// restore
+	fmt.Println("[crate] DEBUG restore syscall umask...")
 	syscall.Umask(oldmask)
 
 	// create init process
@@ -251,14 +257,16 @@ func (self *Crate) startInit(id, containerDir string, container libcontainer.Con
 		Stderr:     stderr,
 		ExtraFiles: []*os.File{socketFile},
 	}
+	fmt.Println("[crate] DEBUG starting container crate-init...")
 	if err := container.Start(process); err != nil {
 		return -1, err
 	}
 
 	// drop pid file
+	fmt.Println("[crate] DEBUG dropping pid file...")
 	pidfile := filepath.Join(containerDir, PID_FILE)
 	pid, err := process.Pid()
-	fmt.Println("PARENT: writing pid file...", pidfile, pid)
+	fmt.Println("[crate] DEBUG writing pid file...", pidfile, pid)
 	if err != nil {
 		return -1, err
 	}
@@ -288,7 +296,7 @@ func (self *Crate) Load(id string) (*Container, error) {
 func (self *Crate) Destroy(id string) error {
 	// unmount rootfs
 	if out, err := exec.Command("umount", self.rootfs(id)).CombinedOutput(); err != nil {
-		fmt.Println("Error unmounting rootfs: ", string(out), err)
+		fmt.Println("[crate] Error unmounting rootfs: ", string(out), err)
 		return err
 	}
 	c, err := self.Load(id)
