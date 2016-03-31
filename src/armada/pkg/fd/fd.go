@@ -1,6 +1,7 @@
 package fd
 
 import (
+  "fmt"
   "os"
   "net"
   "syscall"
@@ -15,6 +16,7 @@ import (
 // Use net.FileConn() if you're receiving a network connection. Don't
 // forget to close the returned *os.File though.
 func Receive(via *net.UnixConn, num int, filenames []string) ([]*os.File, error) {
+  fmt.Println("[fd] Receive:", num, filenames)
 	if num < 1 {
 		return nil, nil
 	}
@@ -80,5 +82,6 @@ func Send(via *net.UnixConn, files ...*os.File) error {
 	}
 
 	rights := syscall.UnixRights(fds...)
+  fmt.Println("[fd] Send:", len(files))
 	return syscall.Sendmsg(socket, nil, rights, nil, 0)
 }

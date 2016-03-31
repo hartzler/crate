@@ -1,7 +1,7 @@
 package crate
 
 import (
-	"github.com/docker/libcontainer"
+	"github.com/opencontainers/runc/libcontainer"
 	"os"
 )
 

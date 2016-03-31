@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
-	"github.com/docker/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/configs"
 )
 
 var netnsCommand = cli.Command{

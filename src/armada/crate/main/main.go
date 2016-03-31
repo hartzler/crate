@@ -6,44 +6,35 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/docker/libcontainer"
+	"github.com/opencontainers/runc/libcontainer"
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 )
+
+func init() {
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		runtime.GOMAXPROCS(1)
+		runtime.LockOSThread()
+		factory, _ := libcontainer.New("")
+		if err := factory.StartInitialization(); err != nil {
+			fatal(err)
+		}
+		panic("--this line should have never been executed, congratulations--")
+	}
+}
 
 func main() {
 	if filepath.Base(os.Args[0]) == crate.CRATE_INIT {
 		startPid1()
 	} else {
-		if len(os.Args) > 1 && os.Args[1] == "init" {
-			runLibcontainerInit()
-		} else {
-			runCrate()
-		}
+		runCrate()
 	}
 }
 
 // the container PID 1
 func startPid1() {
 	pid1.Start()
-}
-
-// bootstrap libcontainer start process
-func runLibcontainerInit() {
-	runtime.GOMAXPROCS(1)
-	runtime.LockOSThread()
-	factory, err := libcontainer.New("")
-	if err != nil {
-		fatal(err)
-	}
-	if err := factory.StartInitialization(); err != nil {
-		fmt.Println("CRATE: libcontainer error...")
-		debug.PrintStack()
-		fatal(err)
-	}
-	panic("unreachable")
 }
 
 func runCrate() {
@@ -59,7 +50,6 @@ func runCrate() {
 		cli.BoolFlag{Name: "debug", Usage: "enable debug output in the logs"},
 	}
 	app.Commands = []cli.Command{
-		setupCommand,
 		newCommand,
 		runCommand,
 		destroyCommand,

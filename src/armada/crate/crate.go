@@ -3,8 +3,8 @@ package crate
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/docker/libcontainer"
-	"github.com/docker/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer"
+	"github.com/opencontainers/runc/libcontainer/configs"
 	"io/ioutil"
 	"net"
 	"os"
@@ -295,14 +295,17 @@ func (self *Crate) Load(id string) (*Container, error) {
 
 func (self *Crate) Destroy(id string) error {
 	// unmount rootfs
+	fmt.Println("[crate] unmounting rootfs:", self.rootfs(id))
 	if out, err := exec.Command("umount", self.rootfs(id)).CombinedOutput(); err != nil {
 		fmt.Println("[crate] Error unmounting rootfs: ", string(out), err)
 		return err
 	}
+	fmt.Println("[crate] loading container...")
 	c, err := self.Load(id)
 	if err != nil {
 		return err
 	}
+	fmt.Println("[crate] destroying container...")
 	err = c.Destroy()
 	if err != nil {
 		return err

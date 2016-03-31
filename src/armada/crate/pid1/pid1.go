@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	_ "github.com/opencontainers/runc/libcontainer/nsenter"
 	"net"
 	"os"
 	"os/exec"
