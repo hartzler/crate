@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-GOTAR=go1.4.2.linux-amd64.tar.gz
+GOTAR=go1.6.linux-amd64.tar.gz
 if [ ! -d /usr/local/go ]; then
   if [ ! -f "$GOTAR" ]; then
     wget -q https://storage.googleapis.com/golang/$GOTAR
