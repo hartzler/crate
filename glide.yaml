@@ -1,0 +1,4 @@
+package: github.com/armada-io/crate
+import:
+- package: github.com/codegangsta/cli
+  version: ~1.18.1
