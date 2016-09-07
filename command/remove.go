@@ -7,17 +7,16 @@ import (
 
 func init() {
 	Commands = append(Commands, cli.Command{
-		Name:        "destroy",
-		Usage:       "destroys a container",
+		Name:        "remove",
+		Usage:       "uninstalls a crate",
 		Description: "args: <id>",
 		Action: func(context *cli.Context) {
 			args := context.Args()
 			if len(args) != 1 {
 				fatal(fmt.Errorf("expected 1 arguments <id>: %d", len(args)))
 			}
-			id := args[0]
 
-			if err := fromContext(context).Destroy(id); err != nil {
+			if err := FromContext(context).Remove(args[0]); err != nil {
 				fatal(err)
 			}
 		},

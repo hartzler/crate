@@ -8,7 +8,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "ubuntu/wily64"
   config.vm.synced_folder '.', '/vagrant/src/github.com/armada-io/crate'
   config.vm.provision :shell, path: 'script/provision.sh'
-  config.vm.provision :shell, path: 'script/mount-cgroups.sh'
   config.vm.provider "virtualbox" do |v|
     v.memory = 1024
     v.cpus = 2

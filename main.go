@@ -2,46 +2,16 @@ package main
 
 import (
 	"github.com/armada-io/crate/command"
-	"github.com/armada-io/crate/crate"
-	"github.com/armada-io/crate/pid1"
 	"github.com/codegangsta/cli"
-	"github.com/opencontainers/runc/libcontainer"
 	"log"
 	"os"
-	"path/filepath"
-	"runtime"
 )
 
-func init() {
-	if len(os.Args) > 1 && os.Args[1] == "init" {
-		runtime.GOMAXPROCS(1)
-		runtime.LockOSThread()
-		factory, _ := libcontainer.New("")
-		if err := factory.StartInitialization(); err != nil {
-			log.Fatal(err)
-		}
-		panic("--this line should have never been executed, congratulations--")
-	}
-}
-
 func main() {
-	if filepath.Base(os.Args[0]) == crate.CRATE_INIT {
-		startPid1()
-	} else {
-		runCrate()
-	}
-}
-
-// the container PID 1
-func startPid1() {
-	pid1.Start()
-}
-
-func runCrate() {
 	app := cli.NewApp()
 	app.Version = "0.1"
 	app.Name = "crate"
-	app.Usage = "manage containers and connections"
+	app.Usage = "simple read only chroot based package manager"
 	app.Author = "Matt Hartzler"
 	app.Email = "matt@armada.io"
 	app.Flags = []cli.Flag{

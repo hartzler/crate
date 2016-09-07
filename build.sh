@@ -14,9 +14,8 @@ case $1 in
 esac
 
 # fmt & simplify
-gofmt -w -s . command/ pid1/
+gofmt -w -s . command/ crate/
 
 # build and test
-#go build -o bin/$NAME armada/$NAME/main && 
+#go build -o bin/$NAME armada/$NAME/main &&
 go test $TEST_OPTIONS $PACKAGE && go install $PACKAGE
-
